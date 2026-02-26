@@ -6,19 +6,22 @@ public class SingleLaneGame : MonoBehaviour
 {
     public GameObject card;
     public GameObject canvas;
+    public SingleLanePlayer singleLanePlayer;
 
     // Start is called before the first frame update
     void Start()
     {
-        for (int i = 0; i < 3; i++)
-        {
-            GameObject temp = Instantiate(card, transform.position, transform.rotation, canvas.transform);
-        }
+        SetHand();
     }
 
     // Update is called once per frame
     void Update()
     {
         
+    }
+
+    private void SetHand()
+    {
+        singleLanePlayer.SetHand(card, canvas);
     }
 }
