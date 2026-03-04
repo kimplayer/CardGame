@@ -1,17 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Xml.Serialization;
 using UnityEngine;
 
 public class SingleLaneElement : MonoBehaviour
 {
     public string selectedCard;
     public Dictionary<int, int> handCard;
+    public int life;
     private List<int> startingCardList;
 
     public SingleLaneElement()
     {
         selectedCard = ""; 
         handCard = new Dictionary<int, int>();
+        life = 10;
         startingCardList = new List<int> { 0, 1, 2, 3, 4 };
     }
     
@@ -22,5 +25,10 @@ public class SingleLaneElement : MonoBehaviour
             int card_kind = startingCardList[n];
             handCard.Add(n, card_kind);
         }
+    }
+
+    public void ClearHand()
+    {
+        handCard.Clear();
     }
 }

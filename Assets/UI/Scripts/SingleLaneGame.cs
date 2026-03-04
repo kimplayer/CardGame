@@ -4,8 +4,6 @@ using UnityEngine;
 
 public class SingleLaneGame : MonoBehaviour
 {
-    public GameObject card;
-    public GameObject canvas;
     public SingleLanePlayer singleLanePlayer;
 
     // Start is called before the first frame update
@@ -22,6 +20,6 @@ public class SingleLaneGame : MonoBehaviour
 
     private void SetHand()
     {
-        singleLanePlayer.SetHand(card, canvas);
+        singleLanePlayer.SetHand();
     }
 }
