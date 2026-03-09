@@ -14,7 +14,6 @@ public class SingleLaneElement : MonoBehaviour
     {
         selectedCard = ""; 
         handCard = new Dictionary<int, int>();
-        life = 10;
         startingCardList = new List<int> { 0, 1, 2, 3, 4 };
     }
     

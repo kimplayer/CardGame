@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.VisionOS;
 using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,11 +10,13 @@ public class Card : MonoBehaviour, IPointerClickHandler
 {
     public int cardType;
     public GameObject infoText;
+    public bool rightClickEnabeld;
     private GameObject instanceInfoText;
 
 
     void Awake()
     {
+        rightClickEnabeld = true;
         instanceInfoText = Instantiate(infoText, transform);
         Vector2 position = new Vector2(0, 100);
         instanceInfoText.transform.localPosition = position;
@@ -23,7 +26,7 @@ public class Card : MonoBehaviour, IPointerClickHandler
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(1))
+        if (Input.GetMouseButtonDown(1) && rightClickEnabeld)
         {
             Debug.Log("Down");
             instanceInfoText.SetActive(false);
@@ -32,11 +35,17 @@ public class Card : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData event_Data)
     {
-        if (event_Data.button == PointerEventData.InputButton.Right)
+        if (event_Data.button == PointerEventData.InputButton.Right && rightClickEnabeld)
         {
             Debug.Log("Click");
             instanceInfoText.SetActive(true);
         }
+    }
+
+    public void InfoTextSetActive(bool active, bool right_ClickEnabled)
+    {
+        instanceInfoText.SetActive(active);
+        rightClickEnabeld = right_ClickEnabled;
     }
 
     public void SetInfo()
