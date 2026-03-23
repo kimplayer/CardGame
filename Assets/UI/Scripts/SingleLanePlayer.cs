@@ -50,7 +50,7 @@ public class SingleLanePlayer : MonoBehaviour
     public void Ready()
     {
         string selected_card_name = singleLaneElement.selectedCard;
-        GameObject selected_object = transform.Find(selected_card_name).gameObject;
+        GameObject selected_object = transform.Find(selected_card_name).gameObject; //Gameobject에서 찾지않고 transform에서 찾는 이유는 GameObject는 신에 있는 모든 동명의 프로젝트를 찾지만 transform은 이 클래스를 컴포넌트로 가지고 있는 오브젝트의 자식 오브젝트 중에서 찾기 때문
         // 선택된 카드 이동
         Vector2 position = new Vector2(0, battlePositionY);
         MoveCard(selected_object, selected_card_name, position);
