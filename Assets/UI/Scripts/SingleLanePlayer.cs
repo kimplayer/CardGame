@@ -41,9 +41,12 @@ public class SingleLanePlayer : MonoBehaviour
 
     public void ClickCard()
     {
-        string selected_card_name = EventSystem.current.currentSelectedGameObject.name;
-        singleLaneElement.selectedCard = selected_card_name;
-        Debug.Log(selected_card_name + " Selected");
+        if (EventSystem.current.currentSelectedGameObject)
+        {
+            string selected_card_name = EventSystem.current.currentSelectedGameObject.name;
+            singleLaneElement.selectedCard = selected_card_name;
+            Debug.Log(selected_card_name + " Selected");
+        }
     }
 
     // 전투 준비
@@ -62,9 +65,25 @@ public class SingleLanePlayer : MonoBehaviour
         string selected_card_name = singleLaneElement.selectedCard;
         GameObject selected_object = transform.Find(selected_card_name).gameObject;
         // 선택된 카드의 타입 가져오기
-        int card_damage = GetCardType(selected_object);
 
-        return card_damage;
+        string opponent_selected_card_name = opponent.singleLaneElement.selectedCard;
+        GameObject opponent_selected_object = opponent.transform.Find(opponent_selected_card_name).gameObject;
+        int opponent_card_type = GetCardType(opponent_selected_object);
+
+        int card_damage = GetCardType(selected_object);
+        if (opponent_card_type == 0)
+        {
+            card_damage = 0;
+        }
+        else if (card_damage == 0)
+        {
+            card_damage = opponent_card_type;
+        }
+        else if (card_damage <= opponent_card_type)
+        {
+            card_damage = 0;
+        }
+            return card_damage;
     }
 
     // 전투 시작
@@ -138,7 +157,7 @@ public class SingleLanePlayer : MonoBehaviour
         foreach (var item in singleLaneElement.handCard)
         {
             card_name = "Card_" + item.Key;
-            GameObject game_object = GameObject.Find(card_name).gameObject;
+            GameObject game_object = transform.Find(card_name).gameObject;
             object_name = game_object.name;
             // 카드 오브젝트 제거
             try
@@ -184,8 +203,15 @@ public class SingleLanePlayer : MonoBehaviour
     // 인공지능 적용
     public void AISelectCard()
     {
-        int number = singleLaneElement.handCard.Count - 1;
-        singleLaneElement.selectedCard = "Card_" + number.ToString();
+        //남은 카드 Key값 리스트
+        List<int> card_keys = new List<int>(singleLaneElement.handCard.Keys);
+        //남은 카드 개수
+        int remain_cards_count = card_keys.Count;
+        //랜덤숫자
+        int random_num = Random.Range(0, remain_cards_count);
+        //카드 랜덤선택
+        int selected_card = card_keys[random_num];
+        singleLaneElement.selectedCard = "Card_" + selected_card.ToString();
     }
 
     // 선택된 카드 이동
@@ -224,14 +250,15 @@ public class SingleLanePlayer : MonoBehaviour
         Debug.Log(num_of_remain_cards + " Cards remained at hand");
 
         string object_name = card_Object.name;
+        string player_name = card_Object.transform.parent.name;
         try
         {
             Destroy(card_Object);
-            Debug.Log(object_name + " : Destroyed");
+            Debug.Log(player_name + " "+object_name + " : Destroyed");
         }
         catch
         {
-            Debug.LogError(object_name + " : Destroying Failed");
+            Debug.LogError(player_name + " " + object_name + object_name + " : Destroying Failed");
         }
 
         return num_of_remain_cards;

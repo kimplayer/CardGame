@@ -68,7 +68,21 @@ public class SingleLaneGame : MonoBehaviour
         if (me_life <= 0 || you_life <= 0)
         {
             GameObject canvas = GameObject.Find("Canvas");
-            canvas.transform.Find("GameOver").gameObject.SetActive(true);
+            GameObject gameover_object = canvas.transform.Find("GameOver").gameObject;
+            Text gameover_text = gameover_object.transform.Find("Text").GetComponent<Text>();
+            if (me_life <= 0 && you_life <= 0)
+            {
+                gameover_text.text = "Draw";
+            }
+            else if (me_life <= 0)
+            {
+                gameover_text.text = "You Lose!";
+            }
+            else
+            {
+                gameover_text.text = "Win!";
+            }
+            gameover_object.SetActive(true);
             gameOver = true;
 
             return true;
