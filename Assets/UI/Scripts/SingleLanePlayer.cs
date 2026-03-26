@@ -1,16 +1,21 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Security.Cryptography;
+using Unity.Properties;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class SingleLanePlayer : MonoBehaviour
 {
-    public GameObject card;
     public GameObject cardPrefab;
     public int handPositionY;
     public int battlePositionY;
+
+    public Text scoreText;
+    public Text outText;
+    public Text baseText;
 
     private SingleLaneElement singleLaneElement;
     private bool opponent;
@@ -25,15 +30,18 @@ public class SingleLanePlayer : MonoBehaviour
         opponent = isOpponent;
 
         singleLaneElement.score = 0;
-        singleLaneElement.outCount = 0;
+        singleLaneElement.ResetOutCount();
+        singleLaneElement.ResetBases();
         singleLaneElement.ClearHand();
 
-        CreateStartHand();
-        UpdateScoreUI();
-        UpdateOutUI();
+        singleLaneElement.ResetDeck();
+        singleLaneElement.ShuffleDeck();
+
+        DrawStartHand();
+        RefreshAllUI();
     }
 
-    public void CreateStartHand()
+    public void DrawStartHand()
     {
         singleLaneElement.DrawCards(5);
         RefreshHandUI();
@@ -63,23 +71,24 @@ public class SingleLanePlayer : MonoBehaviour
     {
         if (string.IsNullOrEmpty(singleLaneElement.selectedCard)) return -1;
 
-        Transform cardTf = transform.Find(singleLaneElement.selectedCard);
-        if (cardTf == null) return -1;
+        Transform tf = transform.Find(singleLaneElement.selectedCard);
+        if (tf == null) return -1;
 
-        Card cardComp = cardTf.GetComponent<Card>();
-        if (cardComp == null) return -1;
+        Card card = tf.GetComponent<Card>();
+        if (card == null) return -1;
 
-        return cardComp.cardType;
+        return card.cardType;
     }
 
     public void MoveSelectedCardToBattleZone()
     {
         if (string.IsNullOrEmpty(singleLaneElement.selectedCard)) return;
 
-        Transform selectedTf = transform.Find(singleLaneElement.selectedCard);
-        if (selectedTf == null) return;
-
-        selectedTf.localPosition = new Vector2(0, battlePositionY);
+        Transform tf = transform.Find(singleLaneElement.selectedCard);
+        if (tf != null)
+        {
+            tf.localPosition = new Vector2(0, battlePositionY);
+        }
     }
 
     public int UseSelectedCard()
@@ -88,14 +97,33 @@ public class SingleLanePlayer : MonoBehaviour
 
         int cardType = GetSelectedCardType();
 
-        Transform selectedTf = transform.Find(singleLaneElement.selectedCard);
-        if (selectedTf != null)
+        Transform tf = transform.Find(singleLaneElement.selectedCard);
+        if (tf != null)
         {
-            Destroy(selectedTf.gameObject);
+            Destroy(tf.gameObject);
         }
 
         singleLaneElement.RemoveSelectedCardFromHand();
         return cardType;
+    }
+
+    public void AISelectCard()
+    {
+        List<int> keys = new List<int>(singleLaneElement.handCard.Keys);
+        if (keys.Count == 0)
+        {
+            singleLaneElement.selectedCard = "";
+            return;
+        }
+
+        int rand = Random.Range(0, keys.Count);
+        int selected = keys[rand];
+        singleLaneElement.selectedCard = "Card_" + selected;
+    }
+
+    public int GetHandCount()
+    {
+        return singleLaneElement.handCard.Count;
     }
 
     public void AddScore(int value)
@@ -122,32 +150,125 @@ public class SingleLanePlayer : MonoBehaviour
 
     public void ResetOutCount()
     {
-        singleLaneElement.outCount = 0;
+        singleLaneElement.ResetOutCount();
         UpdateOutUI();
     }
 
-    public int GetHandCount()
+    public void ResetBases()
     {
-        return singleLaneElement.handCard.Count;
+        singleLaneElement.ResetBases();
+        UpdateBaseUI();
     }
 
-    public List<int> GetRemainCards()
+    public void RefreshAllUI()
     {
-        return new List<int>(singleLaneElement.handCard.Keys);
+        UpdateScoreUI();
+        UpdateOutUI();
+        UpdateBaseUI();
+        RefreshHandUI();
     }
 
-    public void AISelectCard()
+
+    public void ApplyBattingResult(int cardType)
     {
-        List<int> cardKeys = new List<int>(singleLaneElement.handCard.Keys);
-        if (cardKeys.Count == 0)
+        switch (cardType)
         {
-            singleLaneElement.selectedCard = "";
-            return;
+            case 0:
+                AddOut();
+                break;
+
+            case 1:
+                AdvanceRunners(1);
+                break;
+
+            case 2:
+                AdvanceRunners(2);
+                break;
+
+            case 3:
+                AdvanceRunners(3);
+                break;
+
+            case 4:
+                HomeRun();
+                break;
         }
 
-        int randomNum = Random.Range(0, cardKeys.Count);
-        int selectedCard = cardKeys[randomNum];
-        singleLaneElement.selectedCard = "Card_" + selectedCard;
+        UpdateBaseUI();
+        UpdateScoreUI();
+        UpdateOutUI();
+    }
+
+    private void AdvanceRunners(int hitValue)
+    {
+        int runs = 0;
+
+        bool oldFirst = singleLaneElement.firstBase;
+        bool oldSecond = singleLaneElement.secondBase;
+        bool oldThird = singleLaneElement.thirdBase;
+
+        singleLaneElement.ResetBases();
+
+        // 3루 주자
+        if (oldThird)
+        {
+            if (3 + hitValue >= 4) runs++;
+            else SetBase(3 + hitValue);
+        }
+
+        // 2루 주자
+        if (oldSecond)
+        {
+            if (2 + hitValue >= 4) runs++;
+            else SetBase(2 + hitValue);
+        }
+
+        // 1루 주자
+        if (oldFirst)
+        {
+            if (1 + hitValue >= 4) runs++;
+            else SetBase(1 + hitValue);
+        }
+
+        // 타자 주자
+        if (hitValue >= 4)
+        {
+            runs++;
+        }
+        else
+        {
+            SetBase(hitValue);
+        }
+
+        AddScore(runs);
+    }
+
+    private void HomeRun()
+    {
+        int runs = 1; // 타자
+
+        if (singleLaneElement.firstBase) runs++;
+        if (singleLaneElement.secondBase) runs++;
+        if (singleLaneElement.thirdBase) runs++;
+
+        singleLaneElement.ResetBases();
+        AddScore(runs);
+    }
+
+    private void SetBase(int baseNum)
+    {
+        switch (baseNum)
+        {
+            case 1:
+                singleLaneElement.firstBase = true;
+                break;
+            case 2:
+                singleLaneElement.secondBase = true;
+                break;
+            case 3:
+                singleLaneElement.thirdBase = true;
+                break;
+        }
     }
 
     public void RefreshHandUI()
@@ -159,7 +280,7 @@ public class SingleLanePlayer : MonoBehaviour
 
         foreach (var item in singleLaneElement.handCard)
         {
-            GameObject temp = Object.Instantiate(cardPrefab, transform);
+            GameObject temp = Instantiate(cardPrefab, transform);
 
             positionX += 250;
             position.x = positionX;
@@ -179,7 +300,7 @@ public class SingleLanePlayer : MonoBehaviour
                 Text txt = textTf.GetComponent<Text>();
                 if (txt != null)
                 {
-                    txt.text = item.Value.ToString();
+                    txt.text = GetCardName(item.Value);
                 }
             }
 
@@ -204,6 +325,19 @@ public class SingleLanePlayer : MonoBehaviour
         }
     }
 
+    private string GetCardName(int cardType)
+    {
+        switch (cardType)
+        {
+            case 0: return "OUT";
+            case 1: return "1B";
+            case 2: return "2B";
+            case 3: return "3B";
+            case 4: return "HR";
+            default: return "?";
+        }
+    }
+
     private void ClearHandObjectsOnly()
     {
         List<GameObject> deleteList = new List<GameObject>();
@@ -218,33 +352,35 @@ public class SingleLanePlayer : MonoBehaviour
 
         foreach (GameObject obj in deleteList)
         {
-            Object.Destroy(obj);
+            Destroy(obj);
         }
     }
 
     private void UpdateScoreUI()
     {
-        Transform scoreTf = transform.Find("Score");
-        if (scoreTf != null)
+        if (scoreText != null)
         {
-            Text txt = scoreTf.GetComponent<Text>();
-            if (txt != null)
-            {
-                txt.text = "점수 : " + singleLaneElement.score;
-            }
+            scoreText.text = "점수 : " + singleLaneElement.score;
         }
     }
 
     private void UpdateOutUI()
     {
-        Transform outTf = transform.Find("Out");
-        if (outTf != null)
+        if (outText != null)
         {
-            Text txt = outTf.GetComponent<Text>();
-            if (txt != null)
-            {
-                txt.text = "아웃 : " + singleLaneElement.outCount;
-            }
+            outText.text = "아웃 : " + singleLaneElement.outCount;
+        }
+    }
+
+    private void UpdateBaseUI()
+    {
+        if (baseText != null)
+        {
+            string first = singleLaneElement.firstBase ? "●" : "○";
+            string second = singleLaneElement.secondBase ? "●" : "○";
+            string third = singleLaneElement.thirdBase ? "●" : "○";
+
+            baseText.text = "1루:" + first + "  2루:" + second + "  3루:" + third;
         }
     }
 }

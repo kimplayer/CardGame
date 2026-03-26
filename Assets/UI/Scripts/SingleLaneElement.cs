@@ -17,6 +17,10 @@ public class SingleLaneElement
     public int score;
     public int outCount;
 
+    public bool firstBase;
+    public bool secondBase;
+    public bool thirdBase;
+
     private int nextCardId;
 
 
@@ -26,8 +30,14 @@ public class SingleLaneElement
         handCard = new Dictionary<int, int>();
         deck = new List<int>();
         discard = new List<int>();
+
         score = 0;
         outCount = 0;
+
+        firstBase = false;
+        secondBase = false;
+        thirdBase = false;
+
         nextCardId = 0;
 
         ResetDeck();
@@ -39,7 +49,13 @@ public class SingleLaneElement
     {
         deck.Clear();
 
-        deck.AddRange(new int[] { 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 4 });
+        deck.AddRange(new int[] {
+            0, 0, 0, 0, 0, 0, 
+            1, 1, 1,
+            2, 2, 2,
+            3,
+            4
+        });
     }
 
 
@@ -91,14 +107,7 @@ public class SingleLaneElement
         }
     }
 
-    // 손에서 카드 털기
-    public void ClearHand()
-    {
-        handCard.Clear();
-        selectedCard = "";
-    }
-
-    public int RemoveSelectedCarsdFromHand()
+    public int RemoveSelectedCardFromHand()
     {
         if (string.IsNullOrEmpty(selectedCard)) return -1;
 
@@ -115,5 +124,23 @@ public class SingleLaneElement
         selectedCard = "";
 
         return cardType;
+    }
+
+    // 손에서 카드 털기
+    public void ClearHand()
+    {
+        handCard.Clear();
+        selectedCard = "";
+    }
+
+    public void ResetBases()
+    {
+        firstBase = false;
+        secondBase = false;
+        thirdBase = false;
+    }
+    public void ResetOutCount()
+    {
+        outCount = 0;
     }
 }
