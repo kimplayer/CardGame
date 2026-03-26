@@ -2,28 +2,92 @@
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using UnityEngine;
+using UnityEngine.SocialPlatforms.Impl;
 
 public class SingleLaneElement
 {
     public string selectedCard;
     public Dictionary<int, int> handCard;
-    public int life;
-    public List<int> startingCardList;
+
+    //덱더미
+    public List<int> deck;
+    //버림더미
+    public List<int> discard;
+
+    public int score;
+    public int outCount;
+
+    private int nextCardId;
+
 
     public SingleLaneElement()
     {
         selectedCard = "";
         handCard = new Dictionary<int, int>();
-        startingCardList = new List<int>(new int[] { 0, 1, 2, 2, 3 });
+        deck = new List<int>();
+        discard = new List<int>();
+        score = 0;
+        outCount = 0;
+        nextCardId = 0;
+
+        ResetDeck();
+        ShuffleDeck();
     }
 
-    // 카드 핸드에 세팅
-    public void SetHand()
+    // 덱 초기화
+    public void ResetDeck()
     {
-        for (int n = 0; n < startingCardList.Count; n++)
+        deck.Clear();
+
+        deck.AddRange(new int[] { 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 4 });
+    }
+
+
+    //덱 셔플
+    public void ShuffleDeck()
+    {
+        for (int i = 0; i < deck.Count; i++)
         {
-            int card_kind = startingCardList[n];
-            handCard.Add(n, card_kind);
+            int rand = Random.Range(i, deck.Count);
+            int temp = deck[i];
+            deck[i] = deck[rand];
+            deck[rand] = temp;
+        }
+    }
+
+    // 버린 카드로 덱 초기화
+    public void ResetDeckFromDiscard()
+    {
+        deck.Clear();
+        deck.AddRange(discard);
+        discard.Clear();
+        ShuffleDeck();
+    }
+
+    public void DrawCards(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (deck.Count == 0 )
+            {
+                if (discard.Count == 0)
+                {
+                    ResetDeck();
+                    ShuffleDeck();
+                }
+                else
+                {
+                    ResetDeckFromDiscard();
+                }
+            }
+            if (deck.Count == 0) return; // 덱과 버린 카드 모두 없는 경우, 더 이상 카드를 뽑을 수 없음
+
+            int drawType = deck[0];
+            deck.RemoveAt(0);
+
+            handCard.Add(nextCardId, drawType);
+            nextCardId++;
+
         }
     }
 
@@ -31,5 +95,25 @@ public class SingleLaneElement
     public void ClearHand()
     {
         handCard.Clear();
+        selectedCard = "";
+    }
+
+    public int RemoveSelectedCarsdFromHand()
+    {
+        if (string.IsNullOrEmpty(selectedCard)) return -1;
+
+        string[] split = selectedCard.Split('_');
+        if (split.Length < 2) return 01;
+
+        int key;
+        if (!int.TryParse(split[1], out key)) return -1;
+        if (!handCard.ContainsKey(key)) return -1;
+
+        int cardType = handCard[key];
+        handCard.Remove(key);
+        discard.Add(cardType);
+        selectedCard = "";
+
+        return cardType;
     }
 }
