@@ -4,15 +4,21 @@ using System.Xml.Serialization;
 using UnityEngine;
 using UnityEngine.SocialPlatforms.Impl;
 
+
+// 플레이어 1명의 실제 게임 데이터(손패, 세트카드, 점수, 베이스 상태 등)를 저장하는 클래스
+// MonoBehaviour가 아니라 데이터만 관리하는 용도
 public class SingleLaneElement
 {
     public string selectedCard;
-    public Dictionary<int, int> handCard;
+    public string selectedSetCard;
 
-    //덱더미
-    public List<int> deck;
-    //버림더미
-    public List<int> discard;
+    // 손패와 세트존
+    // key = 카드 고유 번호, value = 카드 ID
+    public Dictionary<int, CardId> handCard;
+    public Dictionary<int, CardId> setCard;
+
+    public List<CardId> deck;
+    public List<CardId> discard;
 
     public int score;
     public int outCount;
@@ -23,13 +29,16 @@ public class SingleLaneElement
 
     private int nextCardId;
 
-
+    // 생성자
     public SingleLaneElement()
     {
         selectedCard = "";
-        handCard = new Dictionary<int, int>();
-        deck = new List<int>();
-        discard = new List<int>();
+        selectedSetCard = "";
+
+        handCard = new Dictionary<int, CardId>();
+        setCard = new Dictionary<int, CardId>();
+        deck = new List<CardId>();
+        discard = new List<CardId>();
 
         score = 0;
         outCount = 0;
@@ -44,34 +53,49 @@ public class SingleLaneElement
         ShuffleDeck();
     }
 
-    // 덱 초기화
+    // 기본 덱 재구성
     public void ResetDeck()
     {
         deck.Clear();
 
-        deck.AddRange(new int[] {
-            0, 0, 0, 0, 0, 0, 
-            1, 1, 1,
-            2, 2, 2,
-            3,
-            4
+        deck.AddRange(new CardId[]
+        {
+            CardId.Hit, CardId.Hit, CardId.Hit, CardId.Hit,
+            CardId.Double, CardId.Double, CardId.Double,
+            CardId.Triple, CardId.Triple,
+            CardId.HomeRun, CardId.HomeRun,
+            CardId.Steal, CardId.Steal,
+            CardId.Bunt, CardId.Bunt,
+
+            CardId.GreatCatch, CardId.GreatCatch,
+            CardId.DoublePlay, CardId.DoublePlay,
+            CardId.TriplePlay,
+            CardId.LookingStrikeOut, CardId.LookingStrikeOut,
+            CardId.SwingStrikeOut, CardId.SwingStrikeOut,
+
+            CardId.Dazzle, CardId.Dazzle,
+            CardId.BadBounce, CardId.BadBounce,
+
+            CardId.PinchHitter, CardId.PinchHitter,
+            CardId.PinchRunner, CardId.PinchRunner,
+            CardId.PitcherChange,
+            CardId.DefensiveSub
         });
     }
 
-
-    //덱 셔플
+    // 셔플
     public void ShuffleDeck()
     {
         for (int i = 0; i < deck.Count; i++)
         {
             int rand = Random.Range(i, deck.Count);
-            int temp = deck[i];
+            CardId temp = deck[i];
             deck[i] = deck[rand];
             deck[rand] = temp;
         }
     }
 
-    // 버린 카드로 덱 초기화
+    // 버린 카드로 덱 재구성
     public void ResetDeckFromDiscard()
     {
         deck.Clear();
@@ -80,67 +104,105 @@ public class SingleLaneElement
         ShuffleDeck();
     }
 
+    // count 만큼 드로우
     public void DrawCards(int count)
     {
         for (int i = 0; i < count; i++)
         {
-            if (deck.Count == 0 )
+            if (deck.Count == 0)
             {
-                if (discard.Count == 0)
+                if (discard.Count > 0)
+                    ResetDeckFromDiscard();
+                else
                 {
                     ResetDeck();
                     ShuffleDeck();
                 }
-                else
-                {
-                    ResetDeckFromDiscard();
-                }
             }
-            if (deck.Count == 0) return; // 덱과 버린 카드 모두 없는 경우, 더 이상 카드를 뽑을 수 없음
 
-            int drawType = deck[0];
+            if (deck.Count == 0) return;
+
+            CardId drawCard = deck[0];
             deck.RemoveAt(0);
 
-            handCard.Add(nextCardId, drawType);
+            handCard.Add(nextCardId, drawCard);
             nextCardId++;
-
         }
     }
 
-    public int RemoveSelectedCardFromHand()
+    // 선택한 손패 카드 사용 처리
+    public CardId RemoveSelectedCardFromHand()
     {
-        if (string.IsNullOrEmpty(selectedCard)) return -1;
+        if (string.IsNullOrEmpty(selectedCard)) return CardId.Hit;
 
         string[] split = selectedCard.Split('_');
-        if (split.Length < 2) return 01;
+        if (split.Length < 2) return CardId.Hit;
 
         int key;
-        if (!int.TryParse(split[1], out key)) return -1;
-        if (!handCard.ContainsKey(key)) return -1;
+        if (!int.TryParse(split[1], out key)) return CardId.Hit;
+        if (!handCard.ContainsKey(key)) return CardId.Hit;
 
-        int cardType = handCard[key];
+        CardId card = handCard[key];
         handCard.Remove(key);
-        discard.Add(cardType);
+        discard.Add(card);
         selectedCard = "";
 
-        return cardType;
+        return card;
     }
 
-    // 손에서 카드 털기
-    public void ClearHand()
+    // 선택한 손패 카드를 세트존으로 이동
+    public bool SetSelectedCardFromHand()
     {
-        handCard.Clear();
+        if (string.IsNullOrEmpty(selectedCard)) return false;
+
+        string[] split = selectedCard.Split('_');
+        if (split.Length < 2) return false;
+
+        int key;
+        if (!int.TryParse(split[1], out key)) return false;
+        if (!handCard.ContainsKey(key)) return false;
+
+        CardId card = handCard[key];
+        handCard.Remove(key);
+        setCard.Add(key, card);
         selectedCard = "";
+
+        return true;
     }
 
+    // 세트존 카드 제거
+    public bool RemoveSetCard(int key, out CardId card)
+    {
+        card = CardId.Hit;
+        if (!setCard.ContainsKey(key)) return false;
+
+        card = setCard[key];
+        setCard.Remove(key);
+        discard.Add(card);
+        return true;
+    }
+
+    // 베이스 초기화
     public void ResetBases()
     {
         firstBase = false;
         secondBase = false;
         thirdBase = false;
     }
+
+    // 아웃카운트 초기화
     public void ResetOutCount()
     {
         outCount = 0;
+    }
+
+    // 베이스 위 주자 수 반환
+    public int RunnerCount()
+    {
+        int count = 0;
+        if (firstBase) count++;
+        if (secondBase) count++;
+        if (thirdBase) count++;
+        return count;
     }
 }
