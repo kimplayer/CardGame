@@ -17,8 +17,24 @@ public class SingleLanePlayer : MonoBehaviour
     public int battlePositionY;
 
     public Text scoreText;
-    public Text outText;
-    public Text baseText;
+
+    [Header("VIsible UI Group")]
+    public GameObject outPanelObject;
+    public GameObject baseDiamondObject;
+
+    [Header("Base Diamond UI")]
+    public Image firstBaseImage;
+    public Image secondBaseImage;
+    public Image thirdBaseImage;
+
+    [Header("Out Count UI")]
+    public Image out1Image;
+    public Image out2Image;
+    public Image out3Image;
+
+    [Header("UI Colors")]
+    public Color activeColor = Color.yellow;
+    public Color inactiveColor = Color.gray;
 
     private SingleLaneElement singleLaneElement;
     private bool opponent;
@@ -93,9 +109,7 @@ public class SingleLanePlayer : MonoBehaviour
     public void ClickCard()
     {
         if (EventSystem.current.currentSelectedGameObject == null) return;
-
         singleLaneElement.selectedCard = EventSystem.current.currentSelectedGameObject.name;
-        Debug.Log(singleLaneElement.selectedCard + " Selected");
     }
 
     // 카드 선택 여부
@@ -178,14 +192,6 @@ public class SingleLanePlayer : MonoBehaviour
         return "알 수 없음";
     }
 
-    // 선택 카드가 세트 가능한 카드인지 확인
-    public bool IsSelectedSetCard()
-    {
-        CardId id = GetSelectedCardId();
-        CardCategory category = GetCardCategory(id);
-        return category == CardCategory.Defense || category == CardCategory.Trap;
-    }
-
     // 선택 카드를 세트존으로 이동
     public bool SetSelectedCard()
     {
@@ -265,7 +271,7 @@ public class SingleLanePlayer : MonoBehaviour
         return singleLaneElement.firstBase || singleLaneElement.secondBase || singleLaneElement.thirdBase;
     }
 
-    // 모든 주자 1루씩 진루
+    // 모든 주자를 1루씩 진루시키는 함수
     public void AdvanceAllRunnersOneBase()
     {
         bool oldFirst = singleLaneElement.firstBase;
@@ -276,9 +282,17 @@ public class SingleLanePlayer : MonoBehaviour
         singleLaneElement.secondBase = false;
         singleLaneElement.thirdBase = false;
 
-        if (oldThird) AddScore(1);
-        if (oldSecond) singleLaneElement.thirdBase = true;
-        if (oldFirst) singleLaneElement.secondBase = true;
+        // 3루 주자는 홈인
+        if (oldThird)
+            AddScore(1);
+
+        // 2루 주자는 3루로
+        if (oldSecond)
+            singleLaneElement.thirdBase = true;
+
+        // 1루 주자는 2루로
+        if (oldFirst)
+            singleLaneElement.secondBase = true;
 
         UpdateBaseUI();
     }
@@ -491,7 +505,7 @@ public class SingleLanePlayer : MonoBehaviour
 
             if (setId == CardId.Dazzle)
             {
-                attacker.AdvanceRunners(1, false);
+                attacker.AdvanceAllRunnersOneBase();
                 RemoveSetCardByKey(key);
                 return true;
             }
@@ -542,12 +556,12 @@ public class SingleLanePlayer : MonoBehaviour
 
             case CardId.DoublePlay:
                 attacker.AddOut(2);
-                attacker.RemoveRunners(1); // 주자 1명 제거
+                attacker.RemoveRunners(1);
                 break;
 
             case CardId.TriplePlay:
-                attacker.AddOut(3);
-                attacker.RemoveRunners(2); // 주자 2명 제거
+                attacker.AddOut(2);
+                attacker.RemoveRunners(2);
                 break;
         }
     }
@@ -810,27 +824,51 @@ public class SingleLanePlayer : MonoBehaviour
     // 점수 UI 갱신
     private void UpdateScoreUI()
     {
-        if (scoreText != null)
-            scoreText.text = "점수 : " + singleLaneElement.score;
+        if (scoreText == null) return;
+
+        if (opponent)
+            scoreText.text = "상대 점수 : " + singleLaneElement.score;
+        else
+            scoreText.text = "내 점수 : " + singleLaneElement.score;
     }
 
-    // 아웃 UI 갱신
+    // 아웃카운트 UI를 OOO 방식으로 갱신
     private void UpdateOutUI()
     {
-        if (outText != null)
-            outText.text = "아웃 : " + singleLaneElement.outCount;
+        SetOutImage(out1Image, singleLaneElement.outCount >= 1);
+        SetOutImage(out2Image, singleLaneElement.outCount >= 2);
+        SetOutImage(out3Image, singleLaneElement.outCount >= 3);
     }
 
-    // 베이스 UI 갱신
+    // 베이스 다이아몬드 UI 갱신
     private void UpdateBaseUI()
     {
-        if (baseText != null)
-        {
-            string first = singleLaneElement.firstBase ? "●" : "○";
-            string second = singleLaneElement.secondBase ? "●" : "○";
-            string third = singleLaneElement.thirdBase ? "●" : "○";
+        SetBaseImage(firstBaseImage, singleLaneElement.firstBase);
+        SetBaseImage(secondBaseImage, singleLaneElement.secondBase);
+        SetBaseImage(thirdBaseImage, singleLaneElement.thirdBase);
+    }
 
-            baseText.text = "1루:" + first + "  2루:" + second + "  3루:" + third;
-        }
+    // 베이스 이미지 색 갱신
+    private void SetBaseImage(Image targetImage, bool active)
+    {
+        if (targetImage == null) return;
+        targetImage.color = active ? activeColor : inactiveColor;
+    }
+
+    // 아웃 이미지 색 갱신
+    private void SetOutImage(Image targetImage, bool active)
+    {
+        if (targetImage == null) return;
+        targetImage.color = active ? activeColor : inactiveColor;
+    }
+   
+    // 아웃패널과 베이스 다이아 UI 표시 여부를 설정하는 함수
+    public void SetFieldUIVisible(bool visible)
+    {
+        if (outPanelObject != null)
+            outPanelObject.SetActive(visible);
+
+        if (baseDiamondObject != null)
+            baseDiamondObject.SetActive(visible);
     }
 }

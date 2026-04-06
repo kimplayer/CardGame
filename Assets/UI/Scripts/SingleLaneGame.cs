@@ -50,6 +50,8 @@ public class SingleLaneGame : MonoBehaviour
         if (coinPanel != null)
             coinPanel.SetActive(true);
 
+        UpdateFieldUIVisibility();
+
         WriteLog("게임 시작. 동전 앞/뒤를 선택하세요.");
         UpdateGameUI();
         SetButtons(false);
@@ -86,6 +88,8 @@ public class SingleLaneGame : MonoBehaviour
         if (coinPanel != null)
             coinPanel.SetActive(false);
 
+        UpdateFieldUIVisibility();
+
         if (playerIsFirst)
             WriteLog("동전 승리! 선공입니다.");
         else
@@ -113,6 +117,8 @@ public class SingleLaneGame : MonoBehaviour
         batter.ResetBases();
 
         List<string> discarded = batter.DrawTurnCards();
+
+        UpdateFieldUIVisibility();
 
         string sideText = isTop ? "초" : "말";
         string batterText = isPlayerBatting ? "내 공격" : "상대 공격";
@@ -226,7 +232,7 @@ public class SingleLaneGame : MonoBehaviour
     // 카드 사용 처리
     private IEnumerator ProcessUseCard(SingleLanePlayer attacker, SingleLanePlayer defender, bool isPlayerAction)
     {
-        yield return new WaitForSeconds(0.2f);
+        yield return new WaitForSeconds(0.5f);
 
         CardId cardId = attacker.UseSelectedCard();
         CardCategory category = attacker.GetCardCategory(cardId);
@@ -306,6 +312,7 @@ public class SingleLaneGame : MonoBehaviour
         }
 
         SetCurrentBattingSide();
+        UpdateFieldUIVisibility();
         UpdateGameUI();
         StartHalfInning();
     }
@@ -428,5 +435,20 @@ public class SingleLaneGame : MonoBehaviour
 
         if (logScrollRect != null)
             logScrollRect.verticalNormalizedPosition = 0f;
+    }
+
+    // 현재 턴에 맞는 플레이어의 아웃/베이스 UI만 보이게 하는 함수
+    private void UpdateFieldUIVisibility()
+    {
+        if (isPlayerBatting)
+        {
+            me.SetFieldUIVisible(true);
+            you.SetFieldUIVisible(false);
+        }
+        else
+        {
+            me.SetFieldUIVisible(false);
+            you.SetFieldUIVisible(true);
+        }
     }
 }
