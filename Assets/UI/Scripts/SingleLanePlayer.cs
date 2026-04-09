@@ -58,8 +58,16 @@ public class SingleLanePlayer : MonoBehaviour
         singleLaneElement.setCard.Clear();
         singleLaneElement.discard.Clear();
 
-        singleLaneElement.ResetDeck();
-        singleLaneElement.ShuffleDeck();
+        // 플레이어만 커스텀 덱 적용, 상대는 기본 덱
+        if (!isOpponent && DeckData.Instance != null && DeckData.Instance.useCustomDeck)
+        {
+            singleLaneElement.SetCustomDeck(DeckData.Instance.playerDeck);
+        }
+        else
+        {
+            singleLaneElement.ResetDeck();
+            singleLaneElement.ShuffleDeck();
+        }
 
         DrawStartHand();
         RefreshAllUI();
@@ -271,7 +279,7 @@ public class SingleLanePlayer : MonoBehaviour
         return singleLaneElement.firstBase || singleLaneElement.secondBase || singleLaneElement.thirdBase;
     }
 
-    // 모든 주자를 1루씩 진루시키는 함수
+    // 모든 주자를 1루씩 진루
     public void AdvanceAllRunnersOneBase()
     {
         bool oldFirst = singleLaneElement.firstBase;
@@ -282,17 +290,9 @@ public class SingleLanePlayer : MonoBehaviour
         singleLaneElement.secondBase = false;
         singleLaneElement.thirdBase = false;
 
-        // 3루 주자는 홈인
-        if (oldThird)
-            AddScore(1);
-
-        // 2루 주자는 3루로
-        if (oldSecond)
-            singleLaneElement.thirdBase = true;
-
-        // 1루 주자는 2루로
-        if (oldFirst)
-            singleLaneElement.secondBase = true;
+        if (oldThird) AddScore(1);
+        if (oldSecond) singleLaneElement.thirdBase = true;
+        if (oldFirst) singleLaneElement.secondBase = true;
 
         UpdateBaseUI();
     }
@@ -306,21 +306,18 @@ public class SingleLanePlayer : MonoBehaviour
             UpdateBaseUI();
             return 1;
         }
-
         if (singleLaneElement.secondBase)
         {
             singleLaneElement.secondBase = false;
             UpdateBaseUI();
             return 1;
         }
-
         if (singleLaneElement.firstBase)
         {
             singleLaneElement.firstBase = false;
             UpdateBaseUI();
             return 1;
         }
-
         return 0;
     }
 
@@ -328,11 +325,8 @@ public class SingleLanePlayer : MonoBehaviour
     private int RemoveRunners(int count)
     {
         int removed = 0;
-
         for (int i = 0; i < count; i++)
-        {
             removed += RemoveOneRunner();
-        }
 
         UpdateBaseUI();
         return removed;
@@ -343,24 +337,12 @@ public class SingleLanePlayer : MonoBehaviour
     {
         switch (cardId)
         {
-            case CardId.Hit:
-                AdvanceRunners(1, true);
-                break;
-            case CardId.Double:
-                AdvanceRunners(2, true);
-                break;
-            case CardId.Triple:
-                AdvanceRunners(3, true);
-                break;
-            case CardId.HomeRun:
-                HomeRun();
-                break;
-            case CardId.Steal:
-                AdvanceRunners(1, false);
-                break;
-            case CardId.Bunt:
-                ApplyBunt();
-                break;
+            case CardId.Hit: AdvanceRunners(1, true); break;
+            case CardId.Double: AdvanceRunners(2, true); break;
+            case CardId.Triple: AdvanceRunners(3, true); break;
+            case CardId.HomeRun: HomeRun(); break;
+            case CardId.Steal: AdvanceRunners(1, false); break;
+            case CardId.Bunt: ApplyBunt(); break;
         }
     }
 
@@ -374,23 +356,19 @@ public class SingleLanePlayer : MonoBehaviour
                     singleLaneElement.DrawCards(3);
                     List<string> removed = TrimHandToLimit();
                     RefreshHandUI();
-
                     if (removed.Count > 0)
                         return "카드 3장을 드로우했다. 손패 초과로 " + string.Join(", ", removed) + " 버림.";
                     return "카드 3장을 드로우했다.";
                 }
-
             case CardId.PinchRunner:
                 {
                     singleLaneElement.DrawCards(2);
                     List<string> removed = TrimHandToLimit();
                     RefreshHandUI();
-
                     if (removed.Count > 0)
                         return "카드 2장을 드로우했다. 손패 초과로 " + string.Join(", ", removed) + " 버림.";
                     return "카드 2장을 드로우했다.";
                 }
-
             case CardId.PitcherChange:
                 enemy.RemoveRandomHandCards(2);
                 RefreshHandUI();
@@ -421,7 +399,6 @@ public class SingleLanePlayer : MonoBehaviour
             CardId id = singleLaneElement.handCard[key];
             singleLaneElement.handCard.Remove(key);
             singleLaneElement.discard.Add(id);
-
             keys.RemoveAt(rand);
         }
 
@@ -481,9 +458,7 @@ public class SingleLanePlayer : MonoBehaviour
         for (int i = 0; i < keys.Count; i++)
         {
             int key = keys[i];
-            CardId setId = singleLaneElement.setCard[key];
-
-            if (setId == CardId.BadBounce)
+            if (singleLaneElement.setCard[key] == CardId.BadBounce)
             {
                 RemoveSetCardByKey(key);
                 return true;
@@ -501,9 +476,7 @@ public class SingleLanePlayer : MonoBehaviour
         for (int i = 0; i < keys.Count; i++)
         {
             int key = keys[i];
-            CardId setId = singleLaneElement.setCard[key];
-
-            if (setId == CardId.Dazzle)
+            if (singleLaneElement.setCard[key] == CardId.Dazzle)
             {
                 attacker.AdvanceAllRunnersOneBase();
                 RemoveSetCardByKey(key);
@@ -587,29 +560,10 @@ public class SingleLanePlayer : MonoBehaviour
         singleLaneElement.secondBase = false;
         singleLaneElement.thirdBase = false;
 
-        if (oldThird)
-        {
-            if (3 + value >= 4) runs++;
-            else SetBase(3 + value);
-        }
-
-        if (oldSecond)
-        {
-            if (2 + value >= 4) runs++;
-            else SetBase(2 + value);
-        }
-
-        if (oldFirst)
-        {
-            if (1 + value >= 4) runs++;
-            else SetBase(1 + value);
-        }
-
-        if (batterAdvance)
-        {
-            if (value >= 4) runs++;
-            else SetBase(value);
-        }
+        if (oldThird) { if (3 + value >= 4) runs++; else SetBase(3 + value); }
+        if (oldSecond) { if (2 + value >= 4) runs++; else SetBase(2 + value); }
+        if (oldFirst) { if (1 + value >= 4) runs++; else SetBase(1 + value); }
+        if (batterAdvance) { if (value >= 4) runs++; else SetBase(value); }
 
         AddScore(runs);
         UpdateBaseUI();
@@ -825,14 +779,11 @@ public class SingleLanePlayer : MonoBehaviour
     private void UpdateScoreUI()
     {
         if (scoreText == null) return;
-
-        if (opponent)
-            scoreText.text = "상대 점수 : " + singleLaneElement.score;
-        else
-            scoreText.text = "내 점수 : " + singleLaneElement.score;
+        scoreText.text = opponent ? "상대 점수 : " + singleLaneElement.score
+                                  : "내 점수 : " + singleLaneElement.score;
     }
 
-    // 아웃카운트 UI를 OOO 방식으로 갱신
+    // 아웃카운트 UI 갱신
     private void UpdateOutUI()
     {
         SetOutImage(out1Image, singleLaneElement.outCount >= 1);
@@ -848,21 +799,19 @@ public class SingleLanePlayer : MonoBehaviour
         SetBaseImage(thirdBaseImage, singleLaneElement.thirdBase);
     }
 
-    // 베이스 이미지 색 갱신
     private void SetBaseImage(Image targetImage, bool active)
     {
         if (targetImage == null) return;
         targetImage.color = active ? activeColor : inactiveColor;
     }
 
-    // 아웃 이미지 색 갱신
     private void SetOutImage(Image targetImage, bool active)
     {
         if (targetImage == null) return;
         targetImage.color = active ? activeColor : inactiveColor;
     }
-   
-    // 아웃패널과 베이스 다이아 UI 표시 여부를 설정하는 함수
+
+    // 아웃패널과 베이스 다이아 UI 표시 여부
     public void SetFieldUIVisible(bool visible)
     {
         if (outPanelObject != null)

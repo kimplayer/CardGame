@@ -12,8 +12,6 @@ public class SingleLaneElement
     public string selectedCard;
     public string selectedSetCard;
 
-    // 손패와 세트존
-    // key = 카드 고유 번호, value = 카드 ID
     public Dictionary<int, CardId> handCard;
     public Dictionary<int, CardId> setCard;
 
@@ -29,7 +27,6 @@ public class SingleLaneElement
 
     private int nextCardId;
 
-    // 생성자
     public SingleLaneElement()
     {
         selectedCard = "";
@@ -81,6 +78,15 @@ public class SingleLaneElement
             CardId.PitcherChange,
             CardId.DefensiveSub
         });
+    }
+
+    // 커스텀 덱 설정 (덱빌딩 씬에서 넘어온 덱 사용)
+    public void SetCustomDeck(List<CardId> customDeck)
+    {
+        deck.Clear();
+        deck.AddRange(customDeck);
+        discard.Clear();
+        ShuffleDeck();
     }
 
     // 셔플

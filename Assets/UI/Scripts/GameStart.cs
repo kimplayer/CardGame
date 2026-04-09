@@ -19,6 +19,6 @@ public class GameStart : MonoBehaviour
 
     public void StartGame()
     {
-        SceneManager.LoadScene("SingleLane");
+        SceneManager.LoadScene("DeckBuild");
     }
 }
