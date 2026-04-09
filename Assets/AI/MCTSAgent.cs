@@ -3,49 +3,63 @@ using UnityEngine;
 
 public class MCTSAgent
 {
-    private int iterations;    // MCTS 반복 횟수
-    private int samplingCount; // IS-MCTS 샘플링 횟수
+    private int iterations;
+    private int samplingCount;
 
-    public MCTSAgent(int iterations = 50, int samplingCount = 20)
+    // ML 추론기 (없으면 순수 MCTS로 동작)
+    private MLPolicyInference mlInference;
+
+    public MCTSAgent(int iterations = 50, int samplingCount = 20,
+                     MLPolicyInference ml = null)
     {
         this.iterations = iterations;
         this.samplingCount = samplingCount;
+        this.mlInference = ml;
     }
 
     // 최선의 행동 반환
     public MCTSAction GetBestAction(GameState rootState)
     {
-        Dictionary<MCTSActionType, float> actionScores =
-            new Dictionary<MCTSActionType, float>();
-
         Dictionary<int, float[]> cardScores = new Dictionary<int, float[]>();
 
-        // IS-MCTS : 샘플링 반복
         for (int s = 0; s < samplingCount; s++)
         {
-            // 상대 손패 샘플링
             GameState sampledState = SampleOpponentHand(rootState);
 
-            // 이 샘플 상태로 MCTS 실행
+            // ML Policy 가져오기
+            float[] policy = null;
+            if (mlInference != null)
+                policy = mlInference.GetPolicy(sampledState.ToInputVector());
+
             MCTSNode root = new MCTSNode(sampledState, null, null);
+
+            // ML Policy로 루트 자식 노드 Prior 설정
+            if (policy != null)
+                InitRootWithPolicy(root, policy);
 
             for (int i = 0; i < iterations; i++)
             {
                 MCTSNode node = Select(root);
-                MCTSNode expanded = Expand(node);
-                float result = Simulate(expanded.state);
+                MCTSNode expanded = Expand(node, policy);
+
+                // ML Value로 Simulation 대체 or 보조
+                float result;
+                if (mlInference != null)
+                    result = HybridEvaluate(expanded.state);
+                else
+                    result = Simulate(expanded.state);
+
                 Backpropagate(expanded, result);
             }
 
-            // 결과 누적
             foreach (MCTSNode child in root.children)
             {
                 int key = child.action.handIndex;
                 if (!cardScores.ContainsKey(key))
-                    cardScores[key] = new float[] { 0f, 0 };
+                    cardScores[key] = new float[] { 0f, 0f };
 
                 cardScores[key][0] += child.WinRate;
-                cardScores[key][1] += 1;
+                cardScores[key][1] += 1f;
             }
         }
 
@@ -60,7 +74,6 @@ public class MCTSAgent
             {
                 bestScore = avgScore;
 
-                // 해당 handIndex의 행동 찾기
                 foreach (MCTSAction action in rootState.GetLegalActions())
                 {
                     if (action.handIndex == pair.Key)
@@ -72,51 +85,50 @@ public class MCTSAgent
             }
         }
 
-        // 행동 못 찾으면 턴 종료
         if (bestAction == null)
             bestAction = new MCTSAction(MCTSActionType.EndTurn, CardId.Hit, -1);
 
         return bestAction;
     }
 
-    // Selection : UCB1으로 탐색할 노드 선택
-    private MCTSNode Select(MCTSNode node)
+    // 루트 노드 자식들에 ML Prior 초기화
+    private void InitRootWithPolicy(MCTSNode root, float[] policy)
     {
-        while (!node.IsLeaf || node.IsFullyExpanded)
+        List<MCTSAction> actions = root.state.GetLegalActions();
+
+        for (int i = 0; i < actions.Count; i++)
         {
-            if (!node.IsFullyExpanded)
-                return node;
-            else
-                node = node.BestChild();
+            int idx = Mathf.Min(i, policy.Length - 1);
+            float prior = policy[idx];
 
-            if (node == null) break;
+            GameState newState = ApplyAction(new GameState(root.state), actions[i]);
+            MCTSNode child = new MCTSNode(newState, actions[i], root, prior);
+
+            root.children.Add(child);
         }
-        return node;
+
+        root.untriedActions.Clear();
     }
 
-    // Expansion : 새 자식 노드 추가
-    private MCTSNode Expand(MCTSNode node)
+    // ML Value + Simulation 혼합 평가
+    private float HybridEvaluate(GameState state)
     {
-        if (node.untriedActions.Count == 0) return node;
+        // ML Value 예측
+        float mlValue = mlInference.GetValue(state.ToInputVector());
 
-        int rand = Random.Range(0, node.untriedActions.Count);
-        MCTSAction action = node.untriedActions[rand];
-        node.untriedActions.RemoveAt(rand);
+        // 짧은 롤아웃
+        float simValue = ShortSimulate(state, 5);
 
-        GameState newState = ApplyAction(new GameState(node.state), action);
-        MCTSNode child = new MCTSNode(newState, action, node);
-        node.children.Add(child);
-
-        return child;
+        // 7:3 비율로 혼합 (ML 신뢰도가 높을수록 ML 비중 높이기)
+        return 0.7f * mlValue + 0.3f * simValue;
     }
 
-    // Simulation : 반이닝 끝까지 랜덤 롤아웃
-    private float Simulate(GameState state)
+    // 짧은 롤아웃 (ML 보조용)
+    private float ShortSimulate(GameState state, int steps)
     {
         GameState sim = new GameState(state);
-        int maxSteps = 20;
 
-        for (int step = 0; step < maxSteps; step++)
+        for (int i = 0; i < steps; i++)
         {
             if (sim.attackerOut >= 3 || sim.attackerHand.Count == 0)
                 break;
@@ -131,7 +143,110 @@ public class MCTSAgent
         return Evaluate(sim);
     }
 
-    // Backpropagation : 결과 역전파
+    // Selection
+    private MCTSNode Select(MCTSNode node)
+    {
+        while (!node.IsLeaf || node.IsFullyExpanded)
+        {
+            if (!node.IsFullyExpanded)
+                return node;
+
+            MCTSNode best = node.BestChild();
+            if (best == null) break;
+            node = best;
+        }
+        return node;
+    }
+
+    // Expansion - ML Policy Prior 반영
+    private MCTSNode Expand(MCTSNode node, float[] policy)
+    {
+        if (node.untriedActions.Count == 0) return node;
+
+        MCTSAction action;
+
+        if (policy != null)
+        {
+            // Policy 확률 기반으로 유망한 행동 우선 선택
+            action = SelectByPolicy(node.untriedActions, policy);
+        }
+        else
+        {
+            // ML 없으면 랜덤 선택
+            int rand = Random.Range(0, node.untriedActions.Count);
+            action = node.untriedActions[rand];
+        }
+
+        node.untriedActions.Remove(action);
+
+        // Prior 값 계산
+        float prior = 1f / Mathf.Max(1, node.untriedActions.Count + 1);
+        if (policy != null)
+        {
+            int idx = node.state.attackerHand.IndexOf(action.cardId);
+            if (idx >= 0 && idx < policy.Length)
+                prior = policy[idx];
+        }
+
+        GameState newState = ApplyAction(new GameState(node.state), action);
+        MCTSNode child = new MCTSNode(newState, action, node, prior);
+        node.children.Add(child);
+
+        return child;
+    }
+
+    // Policy 확률 기반 행동 선택
+    private MCTSAction SelectByPolicy(List<MCTSAction> actions, float[] policy)
+    {
+        float total = 0f;
+        List<float> weights = new List<float>();
+
+        for (int i = 0; i < actions.Count; i++)
+        {
+            int idx = Mathf.Min(actions[i].handIndex >= 0
+                                     ? actions[i].handIndex : 0,
+                                     policy.Length - 1);
+            float weight = policy[idx];
+            weights.Add(weight);
+            total += weight;
+        }
+
+        // 가중치 기반 랜덤 선택
+        float rand = Random.Range(0f, total);
+        float cumulative = 0f;
+
+        for (int i = 0; i < actions.Count; i++)
+        {
+            cumulative += weights[i];
+            if (rand <= cumulative)
+                return actions[i];
+        }
+
+        return actions[actions.Count - 1];
+    }
+
+    // Simulation (ML 없을 때 사용)
+    private float Simulate(GameState state)
+    {
+        GameState sim = new GameState(state);
+        int maxStep = 20;
+
+        for (int i = 0; i < maxStep; i++)
+        {
+            if (sim.attackerOut >= 3 || sim.attackerHand.Count == 0)
+                break;
+
+            List<MCTSAction> actions = sim.GetLegalActions();
+            if (actions.Count == 0) break;
+
+            int rand = Random.Range(0, actions.Count);
+            sim = ApplyAction(sim, actions[rand]);
+        }
+
+        return Evaluate(sim);
+    }
+
+    // Backpropagation
     private void Backpropagate(MCTSNode node, float value)
     {
         while (node != null)
@@ -146,33 +261,24 @@ public class MCTSAgent
     {
         float score = 0f;
 
-        // 득점 차이
         score += (state.attackerScore - state.defenderScore) * 2f;
 
-        // 베이스 주자
         if (state.attackerFirst) score += 0.5f;
         if (state.attackerSecond) score += 0.8f;
         if (state.attackerThird) score += 1.2f;
 
-        // 아웃카운트 페널티
         score -= state.attackerOut * 1.5f;
-
-        // 손패 수
         score += state.attackerHand.Count * 0.1f;
 
-        // -1 ~ 1로 정규화
         return Mathf.Clamp(score / 10f, -1f, 1f);
     }
 
-    // 상대 손패 샘플링 (IS-MCTS 핵심)
+    // 상대 손패 샘플링
     private GameState SampleOpponentHand(GameState state)
     {
         GameState sampled = new GameState(state);
-
-        // 이미 알려진 카드들 제외한 후보 덱 구성
         List<CardId> candidateDeck = BuildCandidateDeck(state);
 
-        // 후보 덱에서 랜덤으로 상대 손패 채우기
         int handSize = Random.Range(3, 8);
         sampled.defenderHand.Clear();
 
@@ -186,10 +292,9 @@ public class MCTSAgent
         return sampled;
     }
 
-    // 후보 덱 구성 (버린 카드, 세트존 카드 제외)
+    // 후보 덱 구성
     private List<CardId> BuildCandidateDeck(GameState state)
     {
-        // 기본 덱 전체
         List<CardId> full = new List<CardId>
         {
             CardId.Hit, CardId.Hit, CardId.Hit, CardId.Hit,
@@ -211,25 +316,19 @@ public class MCTSAgent
             CardId.DefensiveSub
         };
 
-        // 버린 카드 제외
-        foreach (CardId c in state.defenderDiscard)
-            full.Remove(c);
-
-        // 세트존 카드 제외
-        foreach (CardId c in state.defenderSetZone)
-            full.Remove(c);
+        foreach (CardId c in state.defenderDiscard) full.Remove(c);
+        foreach (CardId c in state.defenderSetZone) full.Remove(c);
 
         return full;
     }
 
-    // 행동 적용 후 새 상태 반환
+    // 행동 적용
     private GameState ApplyAction(GameState state, MCTSAction action)
     {
-        if (action.actionType == MCTSActionType.EndTurn)
-            return state;
+        if (action.actionType == MCTSActionType.EndTurn) return state;
 
-        if (action.handIndex < 0 || action.handIndex >= state.attackerHand.Count)
-            return state;
+        if (action.handIndex < 0 ||
+            action.handIndex >= state.attackerHand.Count) return state;
 
         CardId card = state.attackerHand[action.handIndex];
         state.attackerHand.RemoveAt(action.handIndex);
@@ -241,15 +340,13 @@ public class MCTSAgent
             return state;
         }
 
-        // 공격/드로우 카드 효과 적용
         ApplyCardEffect(state, card);
         return state;
     }
 
-    // 카드 효과 적용 (시뮬레이션용 간소화 버전)
+    // 카드 효과 (시뮬레이션용)
     private void ApplyCardEffect(GameState state, CardId card)
     {
-        // 수비 발동 체크
         bool blocked = TryDefend(state, card);
         if (blocked) return;
 
@@ -261,31 +358,23 @@ public class MCTSAgent
             case CardId.HomeRun: HomeRun(state); break;
             case CardId.Steal: AdvanceRunners(state, 1, false); break;
             case CardId.Bunt: ApplyBunt(state); break;
-
-            case CardId.PinchHitter:
-                DrawSimulated(state, 3); break;
-            case CardId.PinchRunner:
-                DrawSimulated(state, 2); break;
-            case CardId.PitcherChange:
-                RemoveDefenderHand(state, 2); break;
-            case CardId.DefensiveSub:
-                RemoveDefenderHand(state, 1); break;
+            case CardId.PinchHitter: DrawSimulated(state, 3); break;
+            case CardId.PinchRunner: DrawSimulated(state, 2); break;
+            case CardId.PitcherChange: RemoveDefenderHand(state, 2); break;
+            case CardId.DefensiveSub: RemoveDefenderHand(state, 1); break;
         }
     }
 
-    // 시뮬레이션용 수비 발동
     private bool TryDefend(GameState state, CardId attackCard)
     {
         for (int i = 0; i < state.defenderSetZone.Count; i++)
         {
             CardId def = state.defenderSetZone[i];
-
             bool isHitType = attackCard == CardId.Hit ||
-                             attackCard == CardId.Double ||
-                             attackCard == CardId.Triple;
+                                 attackCard == CardId.Double ||
+                                 attackCard == CardId.Triple;
             bool isHitOrDouble = attackCard == CardId.Hit ||
-                                 attackCard == CardId.Double;
-
+                                   attackCard == CardId.Double;
             bool canActivate = false;
 
             switch (def)
@@ -294,10 +383,8 @@ public class MCTSAgent
                 case CardId.LookingStrikeOut:
                 case CardId.SwingStrikeOut:
                     canActivate = isHitType; break;
-
                 case CardId.DoublePlay:
                     canActivate = HasRunner(state) && isHitOrDouble; break;
-
                 case CardId.TriplePlay:
                     canActivate = RunnerCount(state) >= 2 &&
                                   attackCard == CardId.Hit; break;
@@ -305,7 +392,6 @@ public class MCTSAgent
 
             if (canActivate)
             {
-                // 불규칙 바운드 체크
                 bool badBounce = TryBadBounce(state);
                 if (!badBounce)
                 {
@@ -321,7 +407,6 @@ public class MCTSAgent
             }
         }
 
-        // 눈부심 체크
         TryDazzle(state);
         return false;
     }
@@ -360,11 +445,9 @@ public class MCTSAgent
             case CardId.LookingStrikeOut:
             case CardId.SwingStrikeOut:
                 state.attackerOut += 1; break;
-
             case CardId.DoublePlay:
                 state.attackerOut += 2;
                 RemoveFrontRunner(state); break;
-
             case CardId.TriplePlay:
                 state.attackerOut += 2;
                 RemoveFrontRunner(state);
@@ -372,7 +455,6 @@ public class MCTSAgent
         }
     }
 
-    // 주자 진루
     private void AdvanceRunners(GameState state, int value, bool batterAdvance)
     {
         bool f = state.attackerFirst;
@@ -416,17 +498,17 @@ public class MCTSAgent
         state.attackerScore += runs;
     }
 
-    private void SetBase(GameState state, int baseNum)
+    private void SetBase(GameState state, int num)
     {
-        if (baseNum == 1) state.attackerFirst = true;
-        if (baseNum == 2) state.attackerSecond = true;
-        if (baseNum == 3) state.attackerThird = true;
+        if (num == 1) state.attackerFirst = true;
+        if (num == 2) state.attackerSecond = true;
+        if (num == 3) state.attackerThird = true;
     }
 
     private void DrawSimulated(GameState state, int count)
     {
         for (int i = 0; i < count; i++)
-            state.attackerHand.Add(CardId.Hit); // 간소화 - 실제론 덱에서 드로우
+            state.attackerHand.Add(CardId.Hit);
     }
 
     private void RemoveDefenderHand(GameState state, int count)
@@ -445,10 +527,8 @@ public class MCTSAgent
         if (state.attackerFirst) { state.attackerFirst = false; }
     }
 
-    private bool HasRunner(GameState state)
-    {
-        return state.attackerFirst || state.attackerSecond || state.attackerThird;
-    }
+    private bool HasRunner(GameState state) =>
+        state.attackerFirst || state.attackerSecond || state.attackerThird;
 
     private int RunnerCount(GameState state)
     {

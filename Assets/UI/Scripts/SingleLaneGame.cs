@@ -36,6 +36,12 @@ public class SingleLaneGame : MonoBehaviour
     private List<string> allLogs = new List<string>();
     private const int MAX_LOG_LINES = 100; // 최대 로그 줄 수
 
+    [Header("ML AI 설정")]
+    public MLPolicyInference mlInference; // Inspector에서 연결
+
+    private MCTSAgent mctsAgent;
+
+
     // 게임 시작
     private void Start()
     {
@@ -55,6 +61,13 @@ public class SingleLaneGame : MonoBehaviour
         WriteLog("게임 시작. 동전 앞/뒤를 선택하세요.");
         UpdateGameUI();
         SetButtons(false);
+
+        // ML 있으면 ML+MCTS, 없으면 순수 MCTS
+        mctsAgent = new MCTSAgent(
+            iterations: 50,
+            samplingCount: 20,
+            ml: mlInference // ML 연결
+            );
     }
 
     // 동전 앞면 선택
@@ -195,7 +208,7 @@ public class SingleLaneGame : MonoBehaviour
     }
 
     // AI 턴 루틴
-    private IEnumerator AITurnRoutine()
+private IEnumerator AITurnRoutine()
     {
         yield return new WaitForSeconds(0.8f);
 
@@ -210,22 +223,69 @@ public class SingleLaneGame : MonoBehaviour
                 yield break;
             }
 
-            batter.AISelectPlayableCard(true);
+            // 기존 AISelectPlayableCard 대신 MCTS+ML 사용
+            GameState currentState = BuildGameState(batter, me);
+            MCTSAction action = mctsAgent.GetBestAction(currentState);
 
-            CardId selected = batter.GetSelectedCardId();
-            CardCategory category = batter.GetCardCategory(selected);
+            // 행동 적용
+            ApplyMCTSAction(batter, action);
 
-            if (category == CardCategory.Defense || category == CardCategory.Trap)
-            {
-                batter.SetSelectedCard();
-                WriteLog("상대가 세트 카드를 1장 배치했다.");
-                yield return new WaitForSeconds(0.5f);
-            }
-            else
-            {
-                yield return StartCoroutine(ProcessUseCard(batter, me, false));
-                yield return new WaitForSeconds(0.7f);
-            }
+            yield return new WaitForSeconds(0.7f);
+        }
+    }
+    // 현재 게임 상태 → GameState 변환
+    private GameState BuildGameState(SingleLanePlayer attacker,
+                                     SingleLanePlayer defender)
+    {
+        GameState state = new GameState();
+
+        // 공격자 정보
+        foreach (var pair in attacker.GetHandCardDict())
+            state.attackerHand.Add(pair.Value);
+
+        foreach (var pair in attacker.GetSetCardDict())
+            state.attackerSetZone.Add(pair.Value);
+
+        state.attackerFirst = attacker.HasRunnerOnFirst();
+        state.attackerSecond = attacker.HasRunnerOnSecond();
+        state.attackerThird = attacker.HasRunnerOnThird();
+        state.attackerOut = attacker.GetOutCount();
+        state.attackerScore = attacker.GetScore();
+
+        // 수비자 정보
+        foreach (var pair in defender.GetSetCardDict())
+            state.defenderSetZone.Add(pair.Value);
+
+        state.defenderScore = defender.GetScore();
+
+        return state;
+    }
+
+    // MCTS 행동 실제 적용
+    private void ApplyMCTSAction(SingleLanePlayer batter, MCTSAction action)
+    {
+        if (action.actionType == MCTSActionType.EndTurn)
+        {
+            WriteLog("상대가 턴을 종료했다.");
+            EndHalfInning();
+            return;
+        }
+
+        // handIndex로 카드 선택
+        List<int> keys = new List<int>(batter.GetHandCardDict().Keys);
+        if (action.handIndex < 0 || action.handIndex >= keys.Count) return;
+
+        int key = keys[action.handIndex];
+        batter.SetSelectedCardByKey(key);
+
+        if (action.actionType == MCTSActionType.SetCard)
+        {
+            batter.SetSelectedCard();
+            WriteLog("상대가 세트 카드를 1장 배치했다.");
+        }
+        else
+        {
+            StartCoroutine(ProcessUseCard(batter, me, false));
         }
     }
 

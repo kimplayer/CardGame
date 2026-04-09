@@ -4,46 +4,55 @@ using UnityEngine;
 public class MCTSNode
 {
     public GameState state;
-    public MCTSAction action;       // 이 노드에 오기까지 한 행동
+    public MCTSAction action;
     public MCTSNode parent;
     public List<MCTSNode> children;
 
     public int visitCount;
     public float totalValue;
 
-    // 아직 시도 안 한 행동 목록
     public List<MCTSAction> untriedActions;
 
-    private const float C = 1.41f; // 탐색 상수
+    // ML Policy 확률값 (이 노드에 오기까지의 행동 확률)
+    public float priorProbability;
 
-    public MCTSNode(GameState state, MCTSAction action, MCTSNode parent)
+    private const float C = 1.41f;
+    private const float C_PUT = 1.0f;  // PUCT 상수 (ML 가중치 강도)
+
+    public MCTSNode(GameState state, MCTSAction action,
+                    MCTSNode parent, float prior = 1.0f)
     {
         this.state = state;
         this.action = action;
         this.parent = parent;
+        this.priorProbability = prior;
+
         children = new List<MCTSNode>();
         visitCount = 0;
         totalValue = 0f;
         untriedActions = state.GetLegalActions();
     }
 
-    // 승률
     public float WinRate => visitCount == 0 ? 0f : totalValue / visitCount;
 
-    // 모든 행동이 탐색됐는지
     public bool IsFullyExpanded => untriedActions.Count == 0;
-
-    // 리프 노드인지
     public bool IsLeaf => children.Count == 0;
 
-    // UCB1 점수
-    public float UCB1(float parentVisit)
+    // PUCT 공식 (ML Prior 반영한 UCB1)
+    // AlphaZero에서 사용하는 방식
+    public float PUCT(float parentVisit)
     {
-        if (visitCount == 0) return float.MaxValue;
-        return WinRate + C * Mathf.Sqrt(Mathf.Log(parentVisit) / visitCount);
+        if (visitCount == 0)
+            return float.MaxValue;
+
+        float exploitation = WinRate;
+        float exploration = C_PUT * priorProbability *
+                             Mathf.Sqrt(parentVisit) / (1 + visitCount);
+
+        return exploitation + exploration;
     }
 
-    // UCB1 기준 최선 자식 반환
+    // PUCT 기준 최선 자식 반환
     public MCTSNode BestChild()
     {
         MCTSNode best = null;
@@ -51,7 +60,7 @@ public class MCTSNode
 
         foreach (MCTSNode child in children)
         {
-            float score = child.UCB1(visitCount);
+            float score = child.PUCT(visitCount);
             if (score > bestScore)
             {
                 bestScore = score;
@@ -62,7 +71,7 @@ public class MCTSNode
         return best;
     }
 
-    // 가장 많이 방문한 자식 반환 (최종 행동 선택 시)
+    // 가장 많이 방문한 자식 반환
     public MCTSNode MostVisitedChild()
     {
         MCTSNode best = null;
@@ -80,7 +89,6 @@ public class MCTSNode
         return best;
     }
 
-    // 역전파
     public void Update(float value)
     {
         visitCount++;

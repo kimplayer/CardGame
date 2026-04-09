@@ -820,4 +820,34 @@ public class SingleLanePlayer : MonoBehaviour
         if (baseDiamondObject != null)
             baseDiamondObject.SetActive(visible);
     }
+
+    // 손패 딕셔너리 반환
+    public Dictionary<int, CardId> GetHandCardDict()
+    {
+        return singleLaneElement.handCard;
+    }
+
+    // 세트존 딕셔너리 반환
+    public Dictionary<int, CardId> GetSetCardDict()
+    {
+        return singleLaneElement.setCard;
+    }
+
+    // 2루 주자 여부
+    public bool HasRunnerOnSecond()
+    {
+        return singleLaneElement.secondBase;
+    }
+
+    // 3루 주자 여부
+    public bool HasRunnerOnThird()
+    {
+        return singleLaneElement.thirdBase;
+    }
+
+    // key로 카드 선택
+    public void SetSelectedCardByKey(int key)
+    {
+        singleLaneElement.selectedCard = "Card_" + key;
+    }
 }
