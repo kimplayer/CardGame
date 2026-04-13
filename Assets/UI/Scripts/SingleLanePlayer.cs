@@ -1,13 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Data;
-using System.Security.Cryptography;
-using Unity.Properties;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-
-// 플레이어 1명의 행동, 카드 사용, UI 갱신을 담당하는 스크립트
 
 public class SingleLanePlayer : MonoBehaviour
 {
@@ -18,7 +13,7 @@ public class SingleLanePlayer : MonoBehaviour
 
     public Text scoreText;
 
-    [Header("VIsible UI Group")]
+    [Header("Visible UI Group")]
     public GameObject outPanelObject;
     public GameObject baseDiamondObject;
 
@@ -46,7 +41,6 @@ public class SingleLanePlayer : MonoBehaviour
         singleLaneElement = new SingleLaneElement();
     }
 
-    // 플레이어 상태 초기화
     public void Initialize(bool isOpponent)
     {
         opponent = isOpponent;
@@ -58,11 +52,8 @@ public class SingleLanePlayer : MonoBehaviour
         singleLaneElement.setCard.Clear();
         singleLaneElement.discard.Clear();
 
-        // 플레이어만 커스텀 덱 적용, 상대는 기본 덱
         if (!isOpponent && DeckData.Instance != null && DeckData.Instance.useCustomDeck)
-        {
             singleLaneElement.SetCustomDeck(DeckData.Instance.playerDeck);
-        }
         else
         {
             singleLaneElement.ResetDeck();
@@ -73,7 +64,6 @@ public class SingleLanePlayer : MonoBehaviour
         RefreshAllUI();
     }
 
-    // 시작 손패 5장 드로우 + 초과 정리
     public List<string> DrawStartHand()
     {
         singleLaneElement.DrawCards(5);
@@ -82,7 +72,6 @@ public class SingleLanePlayer : MonoBehaviour
         return discarded;
     }
 
-    // 턴 시작 시 3장 드로우 + 초과 정리
     public List<string> DrawTurnCards()
     {
         singleLaneElement.DrawCards(3);
@@ -91,7 +80,6 @@ public class SingleLanePlayer : MonoBehaviour
         return discarded;
     }
 
-    // 손패 최대치 11장 유지, 초과분 랜덤 버림
     public List<string> TrimHandToLimit()
     {
         List<string> discardedNames = new List<string>();
@@ -113,20 +101,11 @@ public class SingleLanePlayer : MonoBehaviour
         return discardedNames;
     }
 
-    // 카드 클릭 시 선택 처리
-    public void ClickCard()
-    {
-        if (EventSystem.current.currentSelectedGameObject == null) return;
-        singleLaneElement.selectedCard = EventSystem.current.currentSelectedGameObject.name;
-    }
-
-    // 카드 선택 여부
     public bool CheckSelectedCard()
     {
         return !string.IsNullOrEmpty(singleLaneElement.selectedCard);
     }
 
-    // 선택 카드 ID 반환
     public CardId GetSelectedCardId()
     {
         if (string.IsNullOrEmpty(singleLaneElement.selectedCard)) return CardId.Hit;
@@ -139,7 +118,6 @@ public class SingleLanePlayer : MonoBehaviour
         return singleLaneElement.handCard[key];
     }
 
-    // 카드 분류 반환
     public CardCategory GetCardCategory(CardId id)
     {
         switch (id)
@@ -173,7 +151,6 @@ public class SingleLanePlayer : MonoBehaviour
         return CardCategory.Attack;
     }
 
-    // 카드 이름 반환
     public string GetCardName(CardId id)
     {
         switch (id)
@@ -200,7 +177,6 @@ public class SingleLanePlayer : MonoBehaviour
         return "알 수 없음";
     }
 
-    // 선택 카드를 세트존으로 이동
     public bool SetSelectedCard()
     {
         bool result = singleLaneElement.SetSelectedCardFromHand();
@@ -209,7 +185,6 @@ public class SingleLanePlayer : MonoBehaviour
         return result;
     }
 
-    // 선택 카드를 사용 처리
     public CardId UseSelectedCard()
     {
         CardId id = singleLaneElement.RemoveSelectedCardFromHand();
@@ -217,17 +192,17 @@ public class SingleLanePlayer : MonoBehaviour
         return id;
     }
 
-    // 아웃 증가
     public void AddOut(int value = 1)
     {
         singleLaneElement.outCount += value;
         UpdateOutUI();
     }
 
-    public int GetOutCount()
-    {
-        return singleLaneElement.outCount;
-    }
+    public int GetOutCount() => singleLaneElement.outCount;
+    public int GetScore() => singleLaneElement.score;
+    public int GetHandCount() => singleLaneElement.handCard.Count;
+    public int GetSetCount() => singleLaneElement.setCard.Count;
+    public int GetRunnerCount() => singleLaneElement.RunnerCount();
 
     public void ResetOutCount()
     {
@@ -235,51 +210,35 @@ public class SingleLanePlayer : MonoBehaviour
         UpdateOutUI();
     }
 
-    // 베이스 초기화
     public void ResetBases()
     {
         singleLaneElement.ResetBases();
         UpdateBaseUI();
     }
 
-    // 점수 증가
     public void AddScore(int value)
     {
         singleLaneElement.score += value;
         UpdateScoreUI();
     }
 
-    public int GetScore()
+    public bool HasRunnerOnFirst() => singleLaneElement.firstBase;
+    public bool HasRunnerOnSecond() => singleLaneElement.secondBase;
+    public bool HasRunnerOnThird() => singleLaneElement.thirdBase;
+
+    public bool HasAnyRunner() =>
+        singleLaneElement.firstBase ||
+        singleLaneElement.secondBase ||
+        singleLaneElement.thirdBase;
+
+    public Dictionary<int, CardId> GetHandCardDict() => singleLaneElement.handCard;
+    public Dictionary<int, CardId> GetSetCardDict() => singleLaneElement.setCard;
+
+    public void SetSelectedCardByKey(int key)
     {
-        return singleLaneElement.score;
+        singleLaneElement.selectedCard = "Card_" + key;
     }
 
-    public int GetHandCount()
-    {
-        return singleLaneElement.handCard.Count;
-    }
-
-    public int GetSetCount()
-    {
-        return singleLaneElement.setCard.Count;
-    }
-
-    public int GetRunnerCount()
-    {
-        return singleLaneElement.RunnerCount();
-    }
-
-    public bool HasRunnerOnFirst()
-    {
-        return singleLaneElement.firstBase;
-    }
-
-    public bool HasAnyRunner()
-    {
-        return singleLaneElement.firstBase || singleLaneElement.secondBase || singleLaneElement.thirdBase;
-    }
-
-    // 모든 주자를 1루씩 진루
     public void AdvanceAllRunnersOneBase()
     {
         bool oldFirst = singleLaneElement.firstBase;
@@ -297,7 +256,6 @@ public class SingleLanePlayer : MonoBehaviour
         UpdateBaseUI();
     }
 
-    // 가장 앞선 주자부터 1명 제거
     private int RemoveOneRunner()
     {
         if (singleLaneElement.thirdBase)
@@ -321,7 +279,6 @@ public class SingleLanePlayer : MonoBehaviour
         return 0;
     }
 
-    // 주자를 최대 count명 제거
     private int RemoveRunners(int count)
     {
         int removed = 0;
@@ -332,7 +289,6 @@ public class SingleLanePlayer : MonoBehaviour
         return removed;
     }
 
-    // 공격카드 적용
     public void ApplyAttackCard(CardId cardId)
     {
         switch (cardId)
@@ -346,7 +302,6 @@ public class SingleLanePlayer : MonoBehaviour
         }
     }
 
-    // 드로우/특수카드 적용
     public string ApplyDrawCard(CardId cardId, SingleLanePlayer enemy)
     {
         switch (cardId)
@@ -357,7 +312,8 @@ public class SingleLanePlayer : MonoBehaviour
                     List<string> removed = TrimHandToLimit();
                     RefreshHandUI();
                     if (removed.Count > 0)
-                        return "카드 3장을 드로우했다. 손패 초과로 " + string.Join(", ", removed) + " 버림.";
+                        return "카드 3장을 드로우했다. 손패 초과로 " +
+                               string.Join(", ", removed) + " 버림.";
                     return "카드 3장을 드로우했다.";
                 }
             case CardId.PinchRunner:
@@ -366,25 +322,22 @@ public class SingleLanePlayer : MonoBehaviour
                     List<string> removed = TrimHandToLimit();
                     RefreshHandUI();
                     if (removed.Count > 0)
-                        return "카드 2장을 드로우했다. 손패 초과로 " + string.Join(", ", removed) + " 버림.";
+                        return "카드 2장을 드로우했다. 손패 초과로 " +
+                               string.Join(", ", removed) + " 버림.";
                     return "카드 2장을 드로우했다.";
                 }
             case CardId.PitcherChange:
                 enemy.RemoveRandomHandCards(2);
-                RefreshHandUI();
                 return "상대 패 2장을 제거했다.";
 
             case CardId.DefensiveSub:
                 enemy.RemoveRandomHandCards(1);
-                RefreshHandUI();
                 return "상대 패 1장을 제거했다.";
         }
 
-        RefreshHandUI();
         return "";
     }
 
-    // 손패 랜덤 제거
     public void RemoveRandomHandCards(int count)
     {
         List<int> keys = new List<int>(singleLaneElement.handCard.Keys);
@@ -395,8 +348,8 @@ public class SingleLanePlayer : MonoBehaviour
 
             int rand = Random.Range(0, keys.Count);
             int key = keys[rand];
-
             CardId id = singleLaneElement.handCard[key];
+
             singleLaneElement.handCard.Remove(key);
             singleLaneElement.discard.Add(id);
             keys.RemoveAt(rand);
@@ -405,8 +358,9 @@ public class SingleLanePlayer : MonoBehaviour
         RefreshHandUI();
     }
 
-    // 수비/함정 발동 처리
-    public bool TryActivateDefenseOrTrap(CardId attackCard, SingleLanePlayer attacker, out string activatedName)
+    public bool TryActivateDefenseOrTrap(CardId attackCard,
+                                         SingleLanePlayer attacker,
+                                         out string activatedName)
     {
         activatedName = "";
         List<int> keys = new List<int>(singleLaneElement.setCard.Keys);
@@ -443,14 +397,12 @@ public class SingleLanePlayer : MonoBehaviour
         if (!attackCanceled)
         {
             bool dazzled = attacker.TryActivateDazzle(attacker);
-            if (dazzled)
-                activatedName = "눈부심";
+            if (dazzled) activatedName = "눈부심";
         }
 
         return defenseTriggered;
     }
 
-    // 불규칙 바운드 발동
     public bool TryActivateBadBounce()
     {
         List<int> keys = new List<int>(singleLaneElement.setCard.Keys);
@@ -468,7 +420,6 @@ public class SingleLanePlayer : MonoBehaviour
         return false;
     }
 
-    // 눈부심 발동
     public bool TryActivateDazzle(SingleLanePlayer attacker)
     {
         List<int> keys = new List<int>(singleLaneElement.setCard.Keys);
@@ -487,8 +438,8 @@ public class SingleLanePlayer : MonoBehaviour
         return false;
     }
 
-    // 수비카드 발동 조건 판정
-    private bool CanActivateDefense(CardId defenseId, CardId attackCard, SingleLanePlayer attacker)
+    private bool CanActivateDefense(CardId defenseId, CardId attackCard,
+                                    SingleLanePlayer attacker)
     {
         bool isHitType =
             attackCard == CardId.Hit ||
@@ -510,13 +461,13 @@ public class SingleLanePlayer : MonoBehaviour
                 return attacker.HasAnyRunner() && isHitOrDouble;
 
             case CardId.TriplePlay:
-                return attacker.GetRunnerCount() >= 2 && attackCard == CardId.Hit;
+                return attacker.GetRunnerCount() >= 2 &&
+                       attackCard == CardId.Hit;
         }
 
         return false;
     }
 
-    // 수비카드 효과 적용
     private void ApplyDefenseEffect(CardId defenseId, SingleLanePlayer attacker)
     {
         switch (defenseId)
@@ -524,22 +475,18 @@ public class SingleLanePlayer : MonoBehaviour
             case CardId.GreatCatch:
             case CardId.LookingStrikeOut:
             case CardId.SwingStrikeOut:
-                attacker.AddOut(1);
-                break;
+                attacker.AddOut(1); break;
 
             case CardId.DoublePlay:
                 attacker.AddOut(2);
-                attacker.RemoveRunners(1);
-                break;
+                attacker.RemoveRunners(1); break;
 
             case CardId.TriplePlay:
                 attacker.AddOut(2);
-                attacker.RemoveRunners(2);
-                break;
+                attacker.RemoveRunners(2); break;
         }
     }
 
-    // 세트 카드 제거
     private void RemoveSetCardByKey(int key)
     {
         CardId temp;
@@ -547,11 +494,9 @@ public class SingleLanePlayer : MonoBehaviour
         RefreshSetUI();
     }
 
-    // 주자 진루 처리
     private void AdvanceRunners(int value, bool batterAdvance)
     {
         int runs = 0;
-
         bool oldFirst = singleLaneElement.firstBase;
         bool oldSecond = singleLaneElement.secondBase;
         bool oldThird = singleLaneElement.thirdBase;
@@ -569,7 +514,6 @@ public class SingleLanePlayer : MonoBehaviour
         UpdateBaseUI();
     }
 
-    // 번트 처리
     private void ApplyBunt()
     {
         if (singleLaneElement.firstBase)
@@ -578,10 +522,8 @@ public class SingleLanePlayer : MonoBehaviour
 
             if (singleLaneElement.secondBase)
             {
-                if (singleLaneElement.thirdBase)
-                    AddScore(1);
-                else
-                    singleLaneElement.thirdBase = true;
+                if (singleLaneElement.thirdBase) AddScore(1);
+                else singleLaneElement.thirdBase = true;
             }
 
             singleLaneElement.secondBase = true;
@@ -590,11 +532,9 @@ public class SingleLanePlayer : MonoBehaviour
         UpdateBaseUI();
     }
 
-    // 홈런 처리
     private void HomeRun()
     {
         int runs = 1;
-
         if (singleLaneElement.firstBase) runs++;
         if (singleLaneElement.secondBase) runs++;
         if (singleLaneElement.thirdBase) runs++;
@@ -604,7 +544,6 @@ public class SingleLanePlayer : MonoBehaviour
         UpdateBaseUI();
     }
 
-    // 베이스 점유
     private void SetBase(int baseNum)
     {
         switch (baseNum)
@@ -615,34 +554,6 @@ public class SingleLanePlayer : MonoBehaviour
         }
     }
 
-    // AI 카드 선택
-    public void AISelectPlayableCard(bool preferSetCard)
-    {
-        if (preferSetCard)
-        {
-            foreach (var item in singleLaneElement.handCard)
-            {
-                CardCategory cat = GetCardCategory(item.Value);
-                if (cat == CardCategory.Defense || cat == CardCategory.Trap)
-                {
-                    singleLaneElement.selectedCard = "Card_" + item.Key;
-                    return;
-                }
-            }
-        }
-
-        List<int> keys = new List<int>(singleLaneElement.handCard.Keys);
-        if (keys.Count == 0)
-        {
-            singleLaneElement.selectedCard = "";
-            return;
-        }
-
-        int rand = Random.Range(0, keys.Count);
-        singleLaneElement.selectedCard = "Card_" + keys[rand];
-    }
-
-    // 전체 UI 갱신
     public void RefreshAllUI()
     {
         UpdateScoreUI();
@@ -652,7 +563,6 @@ public class SingleLanePlayer : MonoBehaviour
         RefreshSetUI();
     }
 
-    // 손패 UI 재생성
     public void RefreshHandUI()
     {
         ClearObjectsByPrefix("Card_");
@@ -660,8 +570,8 @@ public class SingleLanePlayer : MonoBehaviour
         Vector2 position = new Vector2(0, handPositionY);
         int gap = 180;
         int startX = -(Mathf.Max(0, singleLaneElement.handCard.Count - 1) * gap) / 2;
-
         int index = 0;
+
         foreach (var item in singleLaneElement.handCard)
         {
             GameObject temp = Instantiate(cardPrefab, transform);
@@ -683,37 +593,50 @@ public class SingleLanePlayer : MonoBehaviour
                 Text txt = textTf.GetComponent<Text>();
                 if (txt != null)
                 {
-                    if (opponent)
-                        txt.text = "???";
-                    else if (cardComp != null)
-                        txt.text = cardComp.GetCardName();
+                    if (opponent) txt.text = "???";
+                    else if (cardComp != null) txt.text = cardComp.GetCardName();
                 }
             }
 
             temp.name = "Card_" + item.Key;
 
-            if (buttonComp != null)
+            if (!opponent)
             {
-                buttonComp.onClick.RemoveAllListeners();
-                buttonComp.onClick.AddListener(ClickCard);
+                // 드래그 핸들러 추가
+                CardDragHandler dragHandler = temp.GetComponent<CardDragHandler>();
+                if (dragHandler == null)
+                    dragHandler = temp.AddComponent<CardDragHandler>();
 
-                if (opponent)
-                    buttonComp.interactable = false;
+                dragHandler.cardId = item.Value;
+                dragHandler.category = GetCardCategory(item.Value);
+                dragHandler.cardKey = "Card_" + item.Key;
+
+                // 롱프레스 핸들러 추가
+                LongPressInfo longPress = temp.GetComponent<LongPressInfo>();
+                if (longPress == null)
+                    longPress = temp.AddComponent<LongPressInfo>();
+
+                // 버튼 클릭 이벤트 제거 (드래그로 대체)
+                if (buttonComp != null)
+                {
+                    buttonComp.onClick.RemoveAllListeners();
+                    buttonComp.interactable = true;
+                }
+
+                if (cardComp != null) cardComp.SetInfo();
             }
-
-            if (cardComp != null)
+            else
             {
-                if (opponent)
-                    cardComp.HideInfo();
-                else
-                    cardComp.SetInfo();
+                if (buttonComp != null)
+                    buttonComp.interactable = false;
+
+                if (cardComp != null) cardComp.HideInfo();
             }
 
             index++;
         }
     }
 
-    // 세트존 UI 재생성
     public void RefreshSetUI()
     {
         ClearObjectsByPrefix("Set_");
@@ -721,8 +644,8 @@ public class SingleLanePlayer : MonoBehaviour
         Vector2 position = new Vector2(0, setPositionY);
         int gap = 140;
         int startX = -(Mathf.Max(0, singleLaneElement.setCard.Count - 1) * gap) / 2;
-
         int index = 0;
+
         foreach (var item in singleLaneElement.setCard)
         {
             GameObject temp = Instantiate(cardPrefab, transform);
@@ -737,18 +660,15 @@ public class SingleLanePlayer : MonoBehaviour
                 cardComp.cardId = item.Value;
                 cardComp.category = GetCardCategory(item.Value);
 
-                if (opponent)
-                    cardComp.HideInfo();
-                else
-                    cardComp.SetInfo();
+                if (opponent) cardComp.HideInfo();
+                else cardComp.SetInfo();
             }
 
             Transform textTf = temp.transform.Find("Text");
             if (textTf != null)
             {
                 Text txt = textTf.GetComponent<Text>();
-                if (txt != null)
-                    txt.text = "SET";
+                if (txt != null) txt.text = "SET";
             }
 
             temp.name = "Set_" + item.Key;
@@ -760,30 +680,46 @@ public class SingleLanePlayer : MonoBehaviour
         }
     }
 
-    // 특정 접두사 가진 UI 카드 삭제
     private void ClearObjectsByPrefix(string prefix)
     {
         List<GameObject> deleteList = new List<GameObject>();
 
+        // transform 자식뿐 아니라 비활성화된 것도 포함해서 삭제
         foreach (Transform child in transform)
         {
             if (child.name.StartsWith(prefix))
                 deleteList.Add(child.gameObject);
         }
 
+        // Canvas 최상단으로 이동한 카드도 찾아서 삭제
+        Canvas rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas != null)
+        {
+            foreach (Transform child in rootCanvas.transform)
+            {
+                if (child.name.StartsWith(prefix))
+                {
+                    CardDragHandler drag = child.GetComponent<CardDragHandler>();
+                    // 이 플레이어 소유의 카드인지 확인
+                    if (drag != null && drag.cardKey != null &&
+                        drag.cardKey.StartsWith(prefix))
+                        deleteList.Add(child.gameObject);
+                }
+            }
+        }
+
         foreach (GameObject obj in deleteList)
             Destroy(obj);
     }
 
-    // 점수 UI 갱신
     private void UpdateScoreUI()
     {
         if (scoreText == null) return;
-        scoreText.text = opponent ? "상대 점수 : " + singleLaneElement.score
-                                  : "내 점수 : " + singleLaneElement.score;
+        scoreText.text = opponent
+            ? "상대 점수 : " + singleLaneElement.score
+            : "내 점수 : " + singleLaneElement.score;
     }
 
-    // 아웃카운트 UI 갱신
     private void UpdateOutUI()
     {
         SetOutImage(out1Image, singleLaneElement.outCount >= 1);
@@ -791,7 +727,6 @@ public class SingleLanePlayer : MonoBehaviour
         SetOutImage(out3Image, singleLaneElement.outCount >= 3);
     }
 
-    // 베이스 다이아몬드 UI 갱신
     private void UpdateBaseUI()
     {
         SetBaseImage(firstBaseImage, singleLaneElement.firstBase);
@@ -811,7 +746,6 @@ public class SingleLanePlayer : MonoBehaviour
         targetImage.color = active ? activeColor : inactiveColor;
     }
 
-    // 아웃패널과 베이스 다이아 UI 표시 여부
     public void SetFieldUIVisible(bool visible)
     {
         if (outPanelObject != null)
@@ -819,35 +753,5 @@ public class SingleLanePlayer : MonoBehaviour
 
         if (baseDiamondObject != null)
             baseDiamondObject.SetActive(visible);
-    }
-
-    // 손패 딕셔너리 반환
-    public Dictionary<int, CardId> GetHandCardDict()
-    {
-        return singleLaneElement.handCard;
-    }
-
-    // 세트존 딕셔너리 반환
-    public Dictionary<int, CardId> GetSetCardDict()
-    {
-        return singleLaneElement.setCard;
-    }
-
-    // 2루 주자 여부
-    public bool HasRunnerOnSecond()
-    {
-        return singleLaneElement.secondBase;
-    }
-
-    // 3루 주자 여부
-    public bool HasRunnerOnThird()
-    {
-        return singleLaneElement.thirdBase;
-    }
-
-    // key로 카드 선택
-    public void SetSelectedCardByKey(int key)
-    {
-        singleLaneElement.selectedCard = "Card_" + key;
     }
 }

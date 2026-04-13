@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-
-// 게임 전체 흐름(이닝, 초말, 동전 선택, 턴 진행, 게임 종료)을 관리하는 스크립트
-
 public class SingleLaneGame : MonoBehaviour
 {
     public SingleLanePlayer me;
@@ -19,32 +16,29 @@ public class SingleLaneGame : MonoBehaviour
     public GameObject coinPanel;
     public Text coinResultText;
 
-    public Button useCardButton;
-    public Button setCardButton;
     public Button endTurnButton;
 
-    public ScrollRect logScrollRect; // 스크롤 로그창
-    public Text logText;             // Content 안의 로그 텍스트
+    public ScrollRect logScrollRect;
+    public Text logText;
 
     private int inning = 1;
     private bool isTop = true;
     private bool gameOver = false;
-
     private bool playerIsFirst = true;
     private bool isPlayerBatting = true;
 
-    private List<string> allLogs = new List<string>();
-    private const int MAX_LOG_LINES = 100; // 최대 로그 줄 수
-
-    [Header("ML AI 설정")]
-    public MLPolicyInference mlInference; // Inspector에서 연결
-
     private MCTSAgent mctsAgent;
 
+    private List<string> allLogs = new List<string>();
+    private const int MAX_LOG_LINES = 100;
 
-    // 게임 시작
     private void Start()
     {
+        mctsAgent = new MCTSAgent(
+            iterations: 50,
+            samplingCount: 20
+        );
+
         gameOver = false;
 
         if (resultPanel != null)
@@ -57,32 +51,21 @@ public class SingleLaneGame : MonoBehaviour
             coinPanel.SetActive(true);
 
         UpdateFieldUIVisibility();
-
         WriteLog("게임 시작. 동전 앞/뒤를 선택하세요.");
         UpdateGameUI();
         SetButtons(false);
-
-        // ML 있으면 ML+MCTS, 없으면 순수 MCTS
-        mctsAgent = new MCTSAgent(
-            iterations: 50,
-            samplingCount: 20,
-            ml: mlInference // ML 연결
-            );
     }
 
-    // 동전 앞면 선택
     public void ClickCoinHeads()
     {
         DecideBattingOrder(true);
     }
 
-    // 동전 뒷면 선택
     public void ClickCoinTails()
     {
         DecideBattingOrder(false);
     }
 
-    // 선공/후공 결정
     private void DecideBattingOrder(bool playerChoiceIsHeads)
     {
         bool coinIsHeads = Random.Range(0, 2) == 0;
@@ -90,8 +73,7 @@ public class SingleLaneGame : MonoBehaviour
         if (coinResultText != null)
             coinResultText.text = coinIsHeads ? "동전 결과 : 앞면" : "동전 결과 : 뒷면";
 
-        bool playerWin = (playerChoiceIsHeads == coinIsHeads);
-        playerIsFirst = playerWin;
+        playerIsFirst = (playerChoiceIsHeads == coinIsHeads);
 
         inning = 1;
         isTop = true;
@@ -103,24 +85,16 @@ public class SingleLaneGame : MonoBehaviour
 
         UpdateFieldUIVisibility();
 
-        if (playerIsFirst)
-            WriteLog("동전 승리! 선공입니다.");
-        else
-            WriteLog("동전 패배! 후공입니다.");
+        WriteLog(playerIsFirst ? "동전 승리! 선공입니다." : "동전 패배! 후공입니다.");
 
         StartHalfInning();
     }
 
-    // 현재 초/말에 따라 공격 주체 설정
     private void SetCurrentBattingSide()
     {
-        if (isTop)
-            isPlayerBatting = playerIsFirst;
-        else
-            isPlayerBatting = !playerIsFirst;
+        isPlayerBatting = isTop ? playerIsFirst : !playerIsFirst;
     }
 
-    // 반이닝 시작
     private void StartHalfInning()
     {
         if (gameOver) return;
@@ -150,9 +124,7 @@ public class SingleLaneGame : MonoBehaviour
         UpdateGameUI();
 
         if (isPlayerBatting)
-        {
             SetButtons(true);
-        }
         else
         {
             SetButtons(false);
@@ -160,45 +132,30 @@ public class SingleLaneGame : MonoBehaviour
         }
     }
 
-    // 플레이어 카드 사용 버튼
-    public void ClickUseSelectedCard()
+    // 드래그앤드랍으로 카드 드랍됐을 때
+    public bool OnCardDropped(string cardKey, CardCategory category)
     {
-        if (gameOver || !isPlayerBatting) return;
-        if (!me.CheckSelectedCard()) return;
+        // 상대 턴이거나 게임 종료면 실패 반환
+        if (gameOver || !isPlayerBatting) return false;
 
-        CardId selectedId = me.GetSelectedCardId();
-        CardCategory category = me.GetCardCategory(selectedId);
+        me.SetSelectedCardByKey(ParseKey(cardKey));
 
         if (category == CardCategory.Defense || category == CardCategory.Trap)
         {
-            WriteLog("수비/함정 카드는 세트해야 합니다.");
-            return;
-        }
-
-        StartCoroutine(ProcessUseCard(me, you, true));
-    }
-
-    // 플레이어 카드 세트 버튼
-    public void ClickSetSelectedCard()
-    {
-        if (gameOver || !isPlayerBatting) return;
-        if (!me.CheckSelectedCard()) return;
-
-        CardId selectedId = me.GetSelectedCardId();
-        CardCategory category = me.GetCardCategory(selectedId);
-
-        if (category == CardCategory.Defense || category == CardCategory.Trap)
-        {
+            CardId selectedId = me.GetSelectedCardId();
             me.SetSelectedCard();
             WriteLog($"플레이어가 {me.GetCardName(selectedId)} 카드를 세트했다.");
         }
         else
         {
-            WriteLog("이 카드는 바로 사용 카드입니다.");
+            SetButtons(false);
+            StartCoroutine(ProcessUseCard(me, you, true));
         }
+
+        return true; // 성공 반환
     }
 
-    // 플레이어 턴 종료 버튼
+    // 턴 종료 버튼
     public void ClickEndTurn()
     {
         if (gameOver || !isPlayerBatting) return;
@@ -208,7 +165,7 @@ public class SingleLaneGame : MonoBehaviour
     }
 
     // AI 턴 루틴
-private IEnumerator AITurnRoutine()
+    private IEnumerator AITurnRoutine()
     {
         yield return new WaitForSeconds(0.8f);
 
@@ -223,23 +180,28 @@ private IEnumerator AITurnRoutine()
                 yield break;
             }
 
-            // 기존 AISelectPlayableCard 대신 MCTS+ML 사용
             GameState currentState = BuildGameState(batter, me);
             MCTSAction action = mctsAgent.GetBestAction(currentState);
 
-            // 행동 적용
+            // EndTurn이면 바로 종료
+            if (action.actionType == MCTSActionType.EndTurn)
+            {
+                WriteLog("상대가 턴을 종료했다.");
+                EndHalfInning();
+                yield break;
+            }
+
             ApplyMCTSAction(batter, action);
 
             yield return new WaitForSeconds(0.7f);
         }
     }
-    // 현재 게임 상태 → GameState 변환
+
     private GameState BuildGameState(SingleLanePlayer attacker,
                                      SingleLanePlayer defender)
     {
         GameState state = new GameState();
 
-        // 공격자 정보
         foreach (var pair in attacker.GetHandCardDict())
             state.attackerHand.Add(pair.Value);
 
@@ -252,7 +214,6 @@ private IEnumerator AITurnRoutine()
         state.attackerOut = attacker.GetOutCount();
         state.attackerScore = attacker.GetScore();
 
-        // 수비자 정보
         foreach (var pair in defender.GetSetCardDict())
             state.defenderSetZone.Add(pair.Value);
 
@@ -261,17 +222,8 @@ private IEnumerator AITurnRoutine()
         return state;
     }
 
-    // MCTS 행동 실제 적용
     private void ApplyMCTSAction(SingleLanePlayer batter, MCTSAction action)
     {
-        if (action.actionType == MCTSActionType.EndTurn)
-        {
-            WriteLog("상대가 턴을 종료했다.");
-            EndHalfInning();
-            return;
-        }
-
-        // handIndex로 카드 선택
         List<int> keys = new List<int>(batter.GetHandCardDict().Keys);
         if (action.handIndex < 0 || action.handIndex >= keys.Count) return;
 
@@ -289,8 +241,9 @@ private IEnumerator AITurnRoutine()
         }
     }
 
-    // 카드 사용 처리
-    private IEnumerator ProcessUseCard(SingleLanePlayer attacker, SingleLanePlayer defender, bool isPlayerAction)
+    private IEnumerator ProcessUseCard(SingleLanePlayer attacker,
+                                       SingleLanePlayer defender,
+                                       bool isPlayerAction)
     {
         yield return new WaitForSeconds(0.5f);
 
@@ -304,7 +257,8 @@ private IEnumerator AITurnRoutine()
         {
             WriteLog($"{actor}가 {cardName} 카드를 사용했다.");
 
-            bool blocked = defender.TryActivateDefenseOrTrap(cardId, attacker, out string activatedName);
+            bool blocked = defender.TryActivateDefenseOrTrap(
+                               cardId, attacker, out string activatedName);
 
             if (!blocked)
             {
@@ -317,7 +271,8 @@ private IEnumerator AITurnRoutine()
             }
             else
             {
-                WriteLog($"수비 발동! {activatedName} 때문에 {actor}의 {cardName} 카드가 취소되었다.");
+                WriteLog($"수비 발동! {activatedName} 때문에 " +
+                         $"{actor}의 {cardName} 카드가 취소되었다.");
             }
         }
         else if (category == CardCategory.Draw)
@@ -335,13 +290,14 @@ private IEnumerator AITurnRoutine()
             WriteLog($"{actor}의 반이닝 종료.");
             EndHalfInning();
         }
-        else if (isPlayerBatting)
+        else
         {
-            SetButtons(true);
+            // 플레이어 턴이면 버튼 활성화
+            if (isPlayerAction)
+                SetButtons(true);
         }
     }
 
-    // 반이닝 종료
     private void EndHalfInning()
     {
         if (gameOver) return;
@@ -377,35 +333,28 @@ private IEnumerator AITurnRoutine()
         StartHalfInning();
     }
 
-    // 끝내기 판정
     private bool CheckWalkOff()
     {
         if (inning < 9) return false;
         if (isTop) return false;
 
-        if (playerIsFirst)
-            return you.GetScore() > me.GetScore();
-        else
-            return me.GetScore() > you.GetScore();
+        return playerIsFirst
+            ? you.GetScore() > me.GetScore()
+            : me.GetScore() > you.GetScore();
     }
 
-    // 경기 종료 규칙 판정
     private bool CheckGameOverByRule()
     {
         if (inning < 9) return false;
-        if (inning == 9 && isTop == false) return false;
+        if (inning == 9 && !isTop) return false;
 
-        if (inning == 10 && isTop == true)
-        {
-            if (me.GetScore() != you.GetScore()) return true;
-            return false;
-        }
+        if (inning == 10 && isTop)
+            return me.GetScore() != you.GetScore();
 
         if (inning <= 12) return false;
         return true;
     }
 
-    // 경기 종료 처리
     private void FinishGame()
     {
         gameOver = true;
@@ -436,42 +385,31 @@ private IEnumerator AITurnRoutine()
         UpdateGameUI();
     }
 
-    // 현재 공격 플레이어 반환
     private SingleLanePlayer GetCurrentBatter()
     {
         return isPlayerBatting ? me : you;
     }
 
-    // UI 갱신
     private void UpdateGameUI()
     {
         if (inningText != null)
-        {
-            string half = isTop ? "초" : "말";
-            inningText.text = inning + "회" + half;
-        }
+            inningText.text = inning + "회" + (isTop ? "초" : "말");
 
         if (turnText != null)
-        {
             turnText.text = isPlayerBatting ? "내 공격" : "상대 공격";
-        }
     }
 
-    // 버튼 활성화/비활성화
     private void SetButtons(bool active)
     {
-        if (useCardButton != null) useCardButton.interactable = active;
-        if (setCardButton != null) setCardButton.interactable = active;
-        if (endTurnButton != null) endTurnButton.interactable = active;
+        if (endTurnButton != null)
+            endTurnButton.interactable = active;
     }
 
-    // 이닝 구분선 추가
     private void AddInningDivider(string inningLabel)
     {
         WriteLog($"========= {inningLabel} =========");
     }
 
-    // 로그 추가 + 100줄 초과 시 오래된 로그 삭제
     private void WriteLog(string message)
     {
         allLogs.Add(message);
@@ -483,13 +421,18 @@ private IEnumerator AITurnRoutine()
             logText.text = string.Join("\n", allLogs);
 
         Debug.Log(message);
-
         StartCoroutine(ScrollLogToBottom());
     }
 
-    // 로그 추가 후 스크롤을 맨 아래로 이동
     private IEnumerator ScrollLogToBottom()
     {
+        // Canvas 레이아웃 재계산 강제 실행
+        if (logText != null)
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(
+                logText.rectTransform);
+
+        // 3프레임 대기 (레이아웃 완전히 반영될 때까지)
+        yield return null;
         yield return null;
         yield return null;
 
@@ -497,18 +440,18 @@ private IEnumerator AITurnRoutine()
             logScrollRect.verticalNormalizedPosition = 0f;
     }
 
-    // 현재 턴에 맞는 플레이어의 아웃/베이스 UI만 보이게 하는 함수
     private void UpdateFieldUIVisibility()
     {
-        if (isPlayerBatting)
-        {
-            me.SetFieldUIVisible(true);
-            you.SetFieldUIVisible(false);
-        }
-        else
-        {
-            me.SetFieldUIVisible(false);
-            you.SetFieldUIVisible(true);
-        }
+        me.SetFieldUIVisible(isPlayerBatting);
+        you.SetFieldUIVisible(!isPlayerBatting);
+    }
+
+    private int ParseKey(string cardKey)
+    {
+        string[] split = cardKey.Split('_');
+        int key = 0;
+        if (split.Length >= 2)
+            int.TryParse(split[1], out key);
+        return key;
     }
 }

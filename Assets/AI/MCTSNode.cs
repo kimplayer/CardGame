@@ -13,19 +13,13 @@ public class MCTSNode
 
     public List<MCTSAction> untriedActions;
 
-    // ML Policy 확률값 (이 노드에 오기까지의 행동 확률)
-    public float priorProbability;
-
     private const float C = 1.41f;
-    private const float C_PUT = 1.0f;  // PUCT 상수 (ML 가중치 강도)
 
-    public MCTSNode(GameState state, MCTSAction action,
-                    MCTSNode parent, float prior = 1.0f)
+    public MCTSNode(GameState state, MCTSAction action, MCTSNode parent)
     {
         this.state = state;
         this.action = action;
         this.parent = parent;
-        this.priorProbability = prior;
 
         children = new List<MCTSNode>();
         visitCount = 0;
@@ -34,25 +28,17 @@ public class MCTSNode
     }
 
     public float WinRate => visitCount == 0 ? 0f : totalValue / visitCount;
-
     public bool IsFullyExpanded => untriedActions.Count == 0;
     public bool IsLeaf => children.Count == 0;
 
-    // PUCT 공식 (ML Prior 반영한 UCB1)
-    // AlphaZero에서 사용하는 방식
-    public float PUCT(float parentVisit)
+    // UCB1
+    public float UCB1(float parentVisit)
     {
-        if (visitCount == 0)
-            return float.MaxValue;
-
-        float exploitation = WinRate;
-        float exploration = C_PUT * priorProbability *
-                             Mathf.Sqrt(parentVisit) / (1 + visitCount);
-
-        return exploitation + exploration;
+        if (visitCount == 0) return float.MaxValue;
+        return WinRate + C * Mathf.Sqrt(Mathf.Log(parentVisit) / visitCount);
     }
 
-    // PUCT 기준 최선 자식 반환
+    // UCB1 기준 최선 자식
     public MCTSNode BestChild()
     {
         MCTSNode best = null;
@@ -60,7 +46,7 @@ public class MCTSNode
 
         foreach (MCTSNode child in children)
         {
-            float score = child.PUCT(visitCount);
+            float score = child.UCB1(visitCount);
             if (score > bestScore)
             {
                 bestScore = score;
@@ -71,7 +57,7 @@ public class MCTSNode
         return best;
     }
 
-    // 가장 많이 방문한 자식 반환
+    // 가장 많이 방문한 자식
     public MCTSNode MostVisitedChild()
     {
         MCTSNode best = null;
