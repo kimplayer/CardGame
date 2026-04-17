@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class SingleLanePlayer : MonoBehaviour
 {
-    public GameObject cardPrefab;
+    public GameObject[] cardPrefabs;
     public int handPositionY;
     public int setPositionY;
     public int battlePositionY;
@@ -33,6 +33,9 @@ public class SingleLanePlayer : MonoBehaviour
 
     private SingleLaneElement singleLaneElement;
     private bool opponent;
+
+    [Header("카드 뒷면")]
+    public Sprite cardBackSprite;
 
     private const int MAX_HAND_COUNT = 11;
 
@@ -574,7 +577,11 @@ public class SingleLanePlayer : MonoBehaviour
 
         foreach (var item in singleLaneElement.handCard)
         {
-            GameObject temp = Instantiate(cardPrefab, transform);
+            // 카드 ID에 맞는 프리팹 선택
+            GameObject prefab = GetCardPrefab(item.Value);
+            if (prefab == null) continue;
+
+            GameObject temp = Instantiate(prefab, transform);
             position.x = startX + (index * gap);
             temp.transform.localPosition = position;
 
@@ -587,22 +594,24 @@ public class SingleLanePlayer : MonoBehaviour
                 cardComp.category = GetCardCategory(item.Value);
             }
 
+            // 상대 카드면 이미지 숨기고 ??? 표시
             Transform textTf = temp.transform.Find("Text");
             if (textTf != null)
             {
                 Text txt = textTf.GetComponent<Text>();
                 if (txt != null)
-                {
-                    if (opponent) txt.text = "???";
-                    else if (cardComp != null) txt.text = cardComp.GetCardName();
-                }
+                    txt.text = opponent ? "???" : "";
             }
+
+            // 상대 카드면 카드 이미지도 숨기기
+            Image cardImage = temp.GetComponent<Image>();
+            if (cardImage != null && opponent)
+                cardImage.sprite = GetBackSprite(); // 카드 뒷면 이미지
 
             temp.name = "Card_" + item.Key;
 
             if (!opponent)
             {
-                // 드래그 핸들러 추가
                 CardDragHandler dragHandler = temp.GetComponent<CardDragHandler>();
                 if (dragHandler == null)
                     dragHandler = temp.AddComponent<CardDragHandler>();
@@ -611,12 +620,10 @@ public class SingleLanePlayer : MonoBehaviour
                 dragHandler.category = GetCardCategory(item.Value);
                 dragHandler.cardKey = "Card_" + item.Key;
 
-                // 롱프레스 핸들러 추가
                 LongPressInfo longPress = temp.GetComponent<LongPressInfo>();
                 if (longPress == null)
                     longPress = temp.AddComponent<LongPressInfo>();
 
-                // 버튼 클릭 이벤트 제거 (드래그로 대체)
                 if (buttonComp != null)
                 {
                     buttonComp.onClick.RemoveAllListeners();
@@ -637,6 +644,15 @@ public class SingleLanePlayer : MonoBehaviour
         }
     }
 
+    // 카드 ID에 맞는 프리팹 반환
+    private GameObject GetCardPrefab(CardId id)
+    {
+        int index = (int)id;
+        if (cardPrefabs == null || index >= cardPrefabs.Length) return null;
+        if (cardPrefabs[index] == null) return null;
+        return cardPrefabs[index];
+    }
+
     public void RefreshSetUI()
     {
         ClearObjectsByPrefix("Set_");
@@ -648,7 +664,11 @@ public class SingleLanePlayer : MonoBehaviour
 
         foreach (var item in singleLaneElement.setCard)
         {
-            GameObject temp = Instantiate(cardPrefab, transform);
+            // 세트존은 뒷면 프리팹 사용 (카드 숨김)
+            GameObject prefab = GetCardPrefab(item.Value);
+            if (prefab == null) continue;
+
+            GameObject temp = Instantiate(prefab, transform);
             position.x = startX + (index * gap);
             temp.transform.localPosition = position;
 
@@ -664,11 +684,20 @@ public class SingleLanePlayer : MonoBehaviour
                 else cardComp.SetInfo();
             }
 
+            // 세트존은 항상 SET 텍스트 표시
             Transform textTf = temp.transform.Find("Text");
             if (textTf != null)
             {
                 Text txt = textTf.GetComponent<Text>();
                 if (txt != null) txt.text = "SET";
+            }
+
+            // 상대 세트존은 뒷면 이미지로 교체
+            if (opponent)
+            {
+                Image cardImage = temp.GetComponent<Image>();
+                if (cardImage != null)
+                    cardImage.sprite = GetBackSprite();
             }
 
             temp.name = "Set_" + item.Key;
@@ -753,5 +782,10 @@ public class SingleLanePlayer : MonoBehaviour
 
         if (baseDiamondObject != null)
             baseDiamondObject.SetActive(visible);
+    }
+
+    private Sprite GetBackSprite()
+    {
+        return cardBackSprite;
     }
 }

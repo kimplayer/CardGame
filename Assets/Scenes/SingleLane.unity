@@ -2420,7 +2420,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 406777172}
   m_HandleRect: {fileID: 406777171}
   m_Direction: 2
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -2817,7 +2817,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -341.49966, y: 134.635}
+  m_AnchoredPosition: {x: -341.49966, y: 134.63446}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1531396504
@@ -3747,7 +3747,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a606da8c6209edb498de22818e9055dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardPrefab: {fileID: 5863850915029936879, guid: ebe24efd1ed843b4c86bb20d770902e2, type: 3}
+  cardPrefabs:
+  - {fileID: 5863850915029936879, guid: b4c4bc48ee84dae4aa54e9c76ab3301d, type: 3}
+  - {fileID: 5863850915029936879, guid: 7866f43f3b93fb140a1107c634cbbee0, type: 3}
+  - {fileID: 5863850915029936879, guid: dbaa102bbe19acc49b09185bc2fcf4ae, type: 3}
+  - {fileID: 5863850915029936879, guid: f87a0469000b89844989441d7ec0ee73, type: 3}
+  - {fileID: 5863850915029936879, guid: 8b04d0ee359251c418dacbdc7d451c7c, type: 3}
+  - {fileID: 5863850915029936879, guid: 56c82afc923d69348af091c62ea434da, type: 3}
+  - {fileID: 5863850915029936879, guid: e8708f947e116a349b75c0e33f085352, type: 3}
+  - {fileID: 5863850915029936879, guid: fa33e9cd144c73e4c8e387ddb208c338, type: 3}
+  - {fileID: 5863850915029936879, guid: 584126ccc42ce5b42882c14076305cef, type: 3}
+  - {fileID: 5863850915029936879, guid: ddefc28fcd337394081deb017b1f6a03, type: 3}
+  - {fileID: 5863850915029936879, guid: 288977482dc0708419d55024bcf170e3, type: 3}
+  - {fileID: 5863850915029936879, guid: dbb14f67c407c1e4f8abde455ddf7422, type: 3}
+  - {fileID: 5863850915029936879, guid: c9ad08ed9c3d55b44abf34d6445f802f, type: 3}
+  - {fileID: 5863850915029936879, guid: e036d8a8fb233434099cc2f9610b58fc, type: 3}
+  - {fileID: 5863850915029936879, guid: a35b5371252e3b44eb01a83d7fc8aef5, type: 3}
+  - {fileID: 5863850915029936879, guid: 86c93f85bfe8b7240a3479ff6220bc08, type: 3}
+  - {fileID: 5863850915029936879, guid: d317dea2a40c0944796124a49c3ca1a2, type: 3}
   handPositionY: 250
   setPositionY: 0
   battlePositionY: 50
@@ -3762,6 +3779,7 @@ MonoBehaviour:
   out3Image: {fileID: 1213717491}
   activeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  cardBackSprite: {fileID: 0}
 --- !u!1 &2084461931
 GameObject:
   m_ObjectHideFlags: 0
@@ -3813,7 +3831,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a606da8c6209edb498de22818e9055dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardPrefab: {fileID: 5863850915029936879, guid: ebe24efd1ed843b4c86bb20d770902e2, type: 3}
+  cardPrefabs:
+  - {fileID: 5863850915029936879, guid: b4c4bc48ee84dae4aa54e9c76ab3301d, type: 3}
+  - {fileID: 5863850915029936879, guid: 7866f43f3b93fb140a1107c634cbbee0, type: 3}
+  - {fileID: 5863850915029936879, guid: dbaa102bbe19acc49b09185bc2fcf4ae, type: 3}
+  - {fileID: 5863850915029936879, guid: f87a0469000b89844989441d7ec0ee73, type: 3}
+  - {fileID: 5863850915029936879, guid: 8b04d0ee359251c418dacbdc7d451c7c, type: 3}
+  - {fileID: 5863850915029936879, guid: 56c82afc923d69348af091c62ea434da, type: 3}
+  - {fileID: 5863850915029936879, guid: e8708f947e116a349b75c0e33f085352, type: 3}
+  - {fileID: 5863850915029936879, guid: fa33e9cd144c73e4c8e387ddb208c338, type: 3}
+  - {fileID: 5863850915029936879, guid: 584126ccc42ce5b42882c14076305cef, type: 3}
+  - {fileID: 5863850915029936879, guid: ddefc28fcd337394081deb017b1f6a03, type: 3}
+  - {fileID: 5863850915029936879, guid: 288977482dc0708419d55024bcf170e3, type: 3}
+  - {fileID: 5863850915029936879, guid: dbb14f67c407c1e4f8abde455ddf7422, type: 3}
+  - {fileID: 5863850915029936879, guid: c9ad08ed9c3d55b44abf34d6445f802f, type: 3}
+  - {fileID: 5863850915029936879, guid: e036d8a8fb233434099cc2f9610b58fc, type: 3}
+  - {fileID: 5863850915029936879, guid: a35b5371252e3b44eb01a83d7fc8aef5, type: 3}
+  - {fileID: 5863850915029936879, guid: 86c93f85bfe8b7240a3479ff6220bc08, type: 3}
+  - {fileID: 5863850915029936879, guid: d317dea2a40c0944796124a49c3ca1a2, type: 3}
   handPositionY: -250
   setPositionY: 0
   battlePositionY: 50
@@ -3828,6 +3863,7 @@ MonoBehaviour:
   out3Image: {fileID: 180276150}
   activeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  cardBackSprite: {fileID: 0}
 --- !u!1 &2114179893
 GameObject:
   m_ObjectHideFlags: 0
