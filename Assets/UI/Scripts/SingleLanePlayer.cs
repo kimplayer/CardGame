@@ -600,7 +600,7 @@ public class SingleLanePlayer : MonoBehaviour
             {
                 Text txt = textTf.GetComponent<Text>();
                 if (txt != null)
-                    txt.text = opponent ? "???" : "";
+                    txt.text = "";
             }
 
             // 상대 카드면 카드 이미지도 숨기기
@@ -689,7 +689,7 @@ public class SingleLanePlayer : MonoBehaviour
             if (textTf != null)
             {
                 Text txt = textTf.GetComponent<Text>();
-                if (txt != null) txt.text = "SET";
+                if (txt != null) txt.text = "";
             }
 
             // 상대 세트존은 뒷면 이미지로 교체

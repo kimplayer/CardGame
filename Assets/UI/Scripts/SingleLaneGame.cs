@@ -32,12 +32,15 @@ public class SingleLaneGame : MonoBehaviour
     private List<string> allLogs = new List<string>();
     private const int MAX_LOG_LINES = 100;
 
+    [Header("숨길 UI 목록")]
+    public GameObject[] hideOnCoinPanel; // Inspector에서 숨길 오브젝트들 연결
+
+    [Header("스코어보드")]
+    public ScoreBoard scoreBoard;
+
     private void Start()
     {
-        mctsAgent = new MCTSAgent(
-            iterations: 50,
-            samplingCount: 20
-        );
+        mctsAgent = new MCTSAgent(iterations: 50, samplingCount: 20);
 
         gameOver = false;
 
@@ -50,6 +53,7 @@ public class SingleLaneGame : MonoBehaviour
         if (coinPanel != null)
             coinPanel.SetActive(true);
 
+        SetHideUI(false);
         UpdateFieldUIVisibility();
         WriteLog("게임 시작. 동전 앞/뒤를 선택하세요.");
         UpdateGameUI();
@@ -83,6 +87,13 @@ public class SingleLaneGame : MonoBehaviour
         if (coinPanel != null)
             coinPanel.SetActive(false);
 
+        SetHideUI(true);
+
+        // 동전 결과 확정 후 스코어보드 초기화
+        // 선공 여부를 알고 나서 초기화해야 행 순서가 맞음
+        if (scoreBoard != null)
+            scoreBoard.InitScoreBoard(playerIsFirst);
+
         UpdateFieldUIVisibility();
 
         WriteLog(playerIsFirst ? "동전 승리! 선공입니다." : "동전 패배! 후공입니다.");
@@ -104,6 +115,11 @@ public class SingleLaneGame : MonoBehaviour
         batter.ResetBases();
 
         List<string> discarded = batter.DrawTurnCards();
+
+        // 스코어보드 반이닝 시작 알림
+        if (scoreBoard != null)
+            scoreBoard.OnHalfInningStart(inning, isTop, isPlayerBatting);
+
 
         UpdateFieldUIVisibility();
 
@@ -130,6 +146,20 @@ public class SingleLaneGame : MonoBehaviour
             SetButtons(false);
             StartCoroutine(AITurnRoutine());
         }
+    }
+
+    // 점수 변경 시 스코어보드 갱신
+    public void RefreshScoreBoard()
+    {
+        if (scoreBoard == null) return;
+
+        scoreBoard.OnScoreChanged(
+            inning, isTop,
+            me.GetScore(),
+            you.GetScore(),
+            me.GetScore(),
+            you.GetScore()
+        );
     }
 
     // 드래그앤드랍으로 카드 드랍됐을 때
@@ -284,6 +314,17 @@ public class SingleLaneGame : MonoBehaviour
 
         UpdateGameUI();
 
+
+        // 스코어보드 점수 갱신 추가
+        if (scoreBoard != null)
+            scoreBoard.OnScoreChanged(
+                inning, isTop,
+                me.GetScore(),
+                you.GetScore(),
+                me.GetScore(),
+                you.GetScore()
+            );
+
         if (attacker.GetHandCount() <= 0 || attacker.GetOutCount() >= 3)
         {
             yield return new WaitForSeconds(0.5f);
@@ -301,6 +342,13 @@ public class SingleLaneGame : MonoBehaviour
     private void EndHalfInning()
     {
         if (gameOver) return;
+
+        if (scoreBoard != null)
+            scoreBoard.OnHalfInningEnd(
+                inning, isTop,
+                me.GetScore(),
+                you.GetScore()
+            );
 
         SetButtons(false);
 
@@ -453,5 +501,14 @@ public class SingleLaneGame : MonoBehaviour
         if (split.Length >= 2)
             int.TryParse(split[1], out key);
         return key;
+    }
+    private void SetHideUI(bool visible)
+    {
+        if (hideOnCoinPanel == null) return;
+        foreach (GameObject obj in hideOnCoinPanel)
+        {
+            if (obj != null)
+                obj.SetActive(visible);
+        }
     }
 }
