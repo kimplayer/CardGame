@@ -17,19 +17,15 @@ public class SingleLanePlayer : MonoBehaviour
     public GameObject outPanelObject;
     public GameObject baseDiamondObject;
 
-    [Header("Base Diamond UI")]
-    public Image firstBaseImage;
-    public Image secondBaseImage;
-    public Image thirdBaseImage;
-
     [Header("Out Count UI")]
-    public Image out1Image;
-    public Image out2Image;
-    public Image out3Image;
+    public OutCountUI outCountUI;
 
     [Header("UI Colors")]
     public Color activeColor = Color.yellow;
     public Color inactiveColor = Color.gray;
+
+    [Header("Base Diamond")]
+    public BaseDiamond baseDiamond;
 
     private SingleLaneElement singleLaneElement;
     private bool opponent;
@@ -210,13 +206,17 @@ public class SingleLanePlayer : MonoBehaviour
     public void ResetOutCount()
     {
         singleLaneElement.ResetOutCount();
-        UpdateOutUI();
+
+        if (outCountUI != null)
+            outCountUI.ResetOutCount();
     }
 
     public void ResetBases()
     {
         singleLaneElement.ResetBases();
-        UpdateBaseUI();
+
+        if (baseDiamond != null)
+            baseDiamond.ResetBases();
     }
 
     public void AddScore(int value)
@@ -751,16 +751,18 @@ public class SingleLanePlayer : MonoBehaviour
 
     private void UpdateOutUI()
     {
-        SetOutImage(out1Image, singleLaneElement.outCount >= 1);
-        SetOutImage(out2Image, singleLaneElement.outCount >= 2);
-        SetOutImage(out3Image, singleLaneElement.outCount >= 3);
+        if (outCountUI != null)
+            outCountUI.UpdateOutCount(singleLaneElement.outCount);
     }
 
     private void UpdateBaseUI()
     {
-        SetBaseImage(firstBaseImage, singleLaneElement.firstBase);
-        SetBaseImage(secondBaseImage, singleLaneElement.secondBase);
-        SetBaseImage(thirdBaseImage, singleLaneElement.thirdBase);
+        if (baseDiamond != null)
+            baseDiamond.UpdateBases(
+                singleLaneElement.firstBase,
+                singleLaneElement.secondBase,
+                singleLaneElement.thirdBase
+            );
     }
 
     private void SetBaseImage(Image targetImage, bool active)

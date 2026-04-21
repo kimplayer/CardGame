@@ -38,6 +38,10 @@ public class SingleLaneGame : MonoBehaviour
     [Header("스코어보드")]
     public ScoreBoard scoreBoard;
 
+    [Header("재시작 버튼")]
+    public Button restartButton;   // 덱 다시 고르기
+    public Button playAgainButton; // 같은 덱으로 시작
+
     private void Start()
     {
         mctsAgent = new MCTSAgent(iterations: 50, samplingCount: 20);
@@ -46,6 +50,13 @@ public class SingleLaneGame : MonoBehaviour
 
         if (resultPanel != null)
             resultPanel.SetActive(false);
+
+        // 재시작 버튼 연결
+        if (restartButton != null)
+            restartButton.onClick.AddListener(ClickRestart);
+
+        if (playAgainButton != null)
+            playAgainButton.onClick.AddListener(ClickPlayAgain);
 
         me.Initialize(false);
         you.Initialize(true);
@@ -109,17 +120,25 @@ public class SingleLaneGame : MonoBehaviour
     private void StartHalfInning()
     {
         if (gameOver) return;
+        StartCoroutine(StartHalfInningRoutine());
+    }
+
+    private IEnumerator StartHalfInningRoutine()
+    {
+        if (gameOver) yield break;
 
         SingleLanePlayer batter = GetCurrentBatter();
         batter.ResetOutCount();
         batter.ResetBases();
 
+        // 드로우 전 한 프레임 대기
+        yield return null;
+
+        // 카드 드로우
         List<string> discarded = batter.DrawTurnCards();
 
-        // 스코어보드 반이닝 시작 알림
-        if (scoreBoard != null)
-            scoreBoard.OnHalfInningStart(inning, isTop, isPlayerBatting);
-
+        // 드로우 후 UI 갱신 대기
+        yield return null;
 
         UpdateFieldUIVisibility();
 
@@ -139,11 +158,25 @@ public class SingleLaneGame : MonoBehaviour
 
         UpdateGameUI();
 
+        // 스코어보드 갱신
+        if (scoreBoard != null)
+            scoreBoard.OnHalfInningStart(inning, isTop, isPlayerBatting);
+
+        // 드로우 후 손패 확인
+        if (batter.GetHandCount() <= 0)
+        {
+            WriteLog("손패가 없어 반이닝 종료.");
+            EndHalfInning();
+            yield break;
+        }
+
         if (isPlayerBatting)
             SetButtons(true);
         else
         {
             SetButtons(false);
+            // AI 턴도 약간 대기 후 시작
+            yield return new WaitForSeconds(0.5f);
             StartCoroutine(AITurnRoutine());
         }
     }
@@ -197,11 +230,22 @@ public class SingleLaneGame : MonoBehaviour
     // AI 턴 루틴
     private IEnumerator AITurnRoutine()
     {
+        // 시작 전 대기 (드로우 완료 보장)
         yield return new WaitForSeconds(0.8f);
+
+        // 손패 다시 확인
+        SingleLanePlayer batter = GetCurrentBatter();
+
+        if (batter.GetHandCount() <= 0)
+        {
+            WriteLog("상대 손패 없음. 반이닝 종료.");
+            EndHalfInning();
+            yield break;
+        }
 
         while (!gameOver && !isPlayerBatting)
         {
-            SingleLanePlayer batter = GetCurrentBatter();
+            batter = GetCurrentBatter();
 
             if (batter.GetHandCount() <= 0 || batter.GetOutCount() >= 3)
             {
@@ -213,7 +257,6 @@ public class SingleLaneGame : MonoBehaviour
             GameState currentState = BuildGameState(batter, me);
             MCTSAction action = mctsAgent.GetBestAction(currentState);
 
-            // EndTurn이면 바로 종료
             if (action.actionType == MCTSActionType.EndTurn)
             {
                 WriteLog("상대가 턴을 종료했다.");
@@ -339,16 +382,15 @@ public class SingleLaneGame : MonoBehaviour
         }
     }
 
+    private bool isEndingHalfInning = false;
+
     private void EndHalfInning()
     {
         if (gameOver) return;
 
-        if (scoreBoard != null)
-            scoreBoard.OnHalfInningEnd(
-                inning, isTop,
-                me.GetScore(),
-                you.GetScore()
-            );
+        // 이미 종료 처리 중이면 무시
+        if (isEndingHalfInning) return;
+        isEndingHalfInning = true;
 
         SetButtons(false);
 
@@ -361,6 +403,7 @@ public class SingleLaneGame : MonoBehaviour
             if (CheckWalkOff())
             {
                 WriteLog("끝내기 발생!");
+                isEndingHalfInning = false;
                 FinishGame();
                 return;
             }
@@ -371,6 +414,7 @@ public class SingleLaneGame : MonoBehaviour
 
         if (CheckGameOverByRule())
         {
+            isEndingHalfInning = false;
             FinishGame();
             return;
         }
@@ -378,6 +422,16 @@ public class SingleLaneGame : MonoBehaviour
         SetCurrentBattingSide();
         UpdateFieldUIVisibility();
         UpdateGameUI();
+
+        // 스코어보드 갱신
+        if (scoreBoard != null)
+            scoreBoard.OnHalfInningEnd(
+                inning, isTop,
+                me.GetScore(),
+                you.GetScore()
+            );
+
+        isEndingHalfInning = false;
         StartHalfInning();
     }
 
@@ -410,6 +464,10 @@ public class SingleLaneGame : MonoBehaviour
 
         if (resultPanel != null)
             resultPanel.SetActive(true);
+
+        // 재시작 버튼 활성화
+        if (restartButton != null) restartButton.gameObject.SetActive(true);
+        if (playAgainButton != null) playAgainButton.gameObject.SetActive(true);
 
         if (resultText != null)
         {
@@ -510,5 +568,25 @@ public class SingleLaneGame : MonoBehaviour
             if (obj != null)
                 obj.SetActive(visible);
         }
+    }
+
+    // 덱 다시 고르기 → DeckBuild 씬으로
+    public void ClickRestart()
+    {
+        // 커스텀 덱 초기화
+        if (DeckData.Instance != null)
+        {
+            DeckData.Instance.playerDeck.Clear();
+            DeckData.Instance.useCustomDeck = false;
+        }
+
+        UnityEngine.SceneManagement.SceneManager.LoadScene("DeckBuild");
+    }
+
+    // 같은 덱으로 바로 시작 → SingleLane 씬 재시작
+    public void ClickPlayAgain()
+    {
+        UnityEngine.SceneManagement.SceneManager
+            .LoadScene("SingleLane");
     }
 }
