@@ -35,7 +35,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -4, y: -4}
+  m_SizeDelta: {x: -2, y: -2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2067900818623485027
 CanvasRenderer:
@@ -67,7 +67,7 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 16
+    m_FontSize: 14
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 1
@@ -78,7 +78,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: New Text
+  m_Text: '-'
 --- !u!1 &4588202315924212326
 GameObject:
   m_ObjectHideFlags: 0
@@ -116,7 +116,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 45, y: 40}
+  m_SizeDelta: {x: 45, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7849315451469751185
 CanvasRenderer:
@@ -170,8 +170,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cellText: {fileID: 5553035225396755112}
   cellBackground: {fileID: 8010033708254754339}
-  defaultColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.8}
-  currentColor: {r: 0.2, g: 0.4, b: 0.8, a: 0.8}
-  myScoreColor: {r: 0.1, g: 0.5, b: 0.1, a: 0.8}
-  enemyScoreColor: {r: 0.5, g: 0.1, b: 0.1, a: 0.8}
-  totalColor: {r: 0.4, g: 0.1, b: 0.6, a: 0.8}
+  defaultColor: {r: 0.09803922, g: 0.11764706, b: 0.23529412, a: 0.78431374}
+  currentColor: {r: 0.11764706, g: 0.3137255, b: 0.78431374, a: 0.9019608}
+  myScoreColor: {r: 0.05882353, g: 0.23529412, b: 0.05882353, a: 0.78431374}
+  enemyScoreColor: {r: 0.23529412, g: 0.05882353, b: 0.05882353, a: 0.78431374}
+  totalColor: {r: 0.3137255, g: 0.078431375, b: 0.47058824, a: 0.8627451}

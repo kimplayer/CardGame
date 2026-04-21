@@ -7,9 +7,6 @@ public class SingleLaneGame : MonoBehaviour
 {
     public SingleLanePlayer me;
     public SingleLanePlayer you;
-
-    public Text inningText;
-    public Text turnText;
     public Text resultText;
     public GameObject resultPanel;
 
@@ -41,6 +38,17 @@ public class SingleLaneGame : MonoBehaviour
     [Header("재시작 버튼")]
     public Button restartButton;   // 덱 다시 고르기
     public Button playAgainButton; // 같은 덱으로 시작
+
+
+    private void Awake()
+    {
+        // 가로 방향 강제 고정
+        Screen.orientation = ScreenOrientation.LandscapeLeft;
+        Screen.autorotateToPortrait = false;
+        Screen.autorotateToPortraitUpsideDown = false;
+        Screen.autorotateToLandscapeLeft = true;
+        Screen.autorotateToLandscapeRight = true;
+    }
 
     private void Start()
     {
@@ -315,8 +323,8 @@ public class SingleLaneGame : MonoBehaviour
     }
 
     private IEnumerator ProcessUseCard(SingleLanePlayer attacker,
-                                       SingleLanePlayer defender,
-                                       bool isPlayerAction)
+                                   SingleLanePlayer defender,
+                                   bool isPlayerAction)
     {
         yield return new WaitForSeconds(0.5f);
 
@@ -357,29 +365,34 @@ public class SingleLaneGame : MonoBehaviour
 
         UpdateGameUI();
 
-
-        // 스코어보드 점수 갱신 추가
         if (scoreBoard != null)
             scoreBoard.OnScoreChanged(
                 inning, isTop,
-                me.GetScore(),
-                you.GetScore(),
-                me.GetScore(),
-                you.GetScore()
+                me.GetScore(), you.GetScore(),
+                me.GetScore(), you.GetScore()
             );
 
-        if (attacker.GetHandCount() <= 0 || attacker.GetOutCount() >= 3)
+        // 핵심 수정 부분
+        if (attacker.GetOutCount() >= 3)
         {
             yield return new WaitForSeconds(0.5f);
-            WriteLog($"{actor}의 반이닝 종료.");
+            WriteLog($"{actor}의 반이닝 종료. (3아웃)");
             EndHalfInning();
+            yield break;
         }
-        else
+
+        if (attacker.GetHandCount() <= 0)
         {
-            // 플레이어 턴이면 버튼 활성화
-            if (isPlayerAction)
-                SetButtons(true);
+            yield return new WaitForSeconds(0.5f);
+            WriteLog($"{actor}의 반이닝 종료. (손패 없음)");
+            EndHalfInning();
+            yield break;
         }
+
+        // 플레이어 턴이면 버튼 활성화
+        if (isPlayerAction)
+            SetButtons(true);
+        // AI 턴이면 AITurnRoutine의 while이 처리
     }
 
     private bool isEndingHalfInning = false;
@@ -498,11 +511,7 @@ public class SingleLaneGame : MonoBehaviour
 
     private void UpdateGameUI()
     {
-        if (inningText != null)
-            inningText.text = inning + "회" + (isTop ? "초" : "말");
-
-        if (turnText != null)
-            turnText.text = isPlayerBatting ? "내 공격" : "상대 공격";
+        
     }
 
     private void SetButtons(bool active)

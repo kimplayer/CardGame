@@ -37,6 +37,9 @@ public class ScoreBoard : MonoBehaviour
     // 스코어보드 초기화 - 동전 결과 확정 후 호출
     public void InitScoreBoard(bool isPlayerFirst)
     {
+        prevMyScore = 0;
+        prevEnemyScore = 0;
+
         playerIsFirst = isPlayerFirst;
 
         // 선공이 위, 후공이 아래로 행 순서 설정
@@ -112,17 +115,29 @@ public class ScoreBoard : MonoBehaviour
 
         RefreshUI();
     }
+    // 이닝별 득점을 따로 추적하는 변수 추가
+    private int prevMyScore = 0;
+    private int prevEnemyScore = 0;
 
-    // 점수 변경 시 호출
     public void OnScoreChanged(int inning, bool isTop,
                                 int myScore, int enemyScore,
                                 int myTotal, int enemyTotal)
     {
+        // 이번 이닝에서 새로 얻은 점수만 계산
+        int myInningScore = myScore - prevMyScore;
+        int enemyInningScore = enemyScore - prevEnemyScore;
+
         // 현재 공격 중인 팀의 이닝 점수 업데이트
         if (currentIsPlayer)
-            myInningScores[inning] = myScore;
+        {
+            myInningScores[inning] += myInningScore;
+            prevMyScore = myScore;
+        }
         else
-            enemyInningScores[inning] = enemyScore;
+        {
+            enemyInningScores[inning] += enemyInningScore;
+            prevEnemyScore = enemyScore;
+        }
 
         inningPlayed[inning] = true;
 
@@ -137,13 +152,16 @@ public class ScoreBoard : MonoBehaviour
         RefreshUI();
     }
 
-    // 반이닝 종료 시 호출
+    // 반이닝 종료 시 이전 점수 기준 업데이트
     public void OnHalfInningEnd(int inning, bool isTop,
                                  int myTotal, int enemyTotal)
     {
         inningPlayed[inning] = true;
 
-        // 총점 셀 갱신
+        // 다음 반이닝을 위해 기준점 업데이트
+        prevMyScore = myTotal;
+        prevEnemyScore = enemyTotal;
+
         int lastIdx = myScoreCells.Count - 1;
         if (lastIdx >= 0)
         {

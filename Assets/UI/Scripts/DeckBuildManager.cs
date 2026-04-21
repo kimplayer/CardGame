@@ -32,6 +32,16 @@ public class DeckBuildManager : MonoBehaviour
         CardId.PitcherChange, CardId.DefensiveSub
     };
 
+    private void Awake()
+    {
+        // 가로 방향 강제 고정
+        Screen.orientation = ScreenOrientation.LandscapeLeft;
+        Screen.autorotateToPortrait = false;
+        Screen.autorotateToPortraitUpsideDown = false;
+        Screen.autorotateToLandscapeLeft = true;
+        Screen.autorotateToLandscapeRight = true;
+    }
+
     private void Start()
     {
         // DeckData 싱글톤 없으면 생성
