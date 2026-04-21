@@ -4540,7 +4540,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -341.49966, y: 134.63483}
+  m_AnchoredPosition: {x: -341.49966, y: 134.63438}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1531396504
@@ -6105,7 +6105,7 @@ MonoBehaviour:
   activeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   baseDiamond: {fileID: 1487443114}
-  cardBackSprite: {fileID: 21300000, guid: 8c332e171f116d147b72af4e67bff464, type: 3}
+  cardBackSprite: {fileID: 21300000, guid: 89803b23d9539aa499a9baaa1a2fe231, type: 3}
 --- !u!1 &2084461931
 GameObject:
   m_ObjectHideFlags: 0
@@ -6185,7 +6185,7 @@ MonoBehaviour:
   activeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   baseDiamond: {fileID: 1572144448}
-  cardBackSprite: {fileID: 21300000, guid: 8c332e171f116d147b72af4e67bff464, type: 3}
+  cardBackSprite: {fileID: 21300000, guid: 89803b23d9539aa499a9baaa1a2fe231, type: 3}
 --- !u!1 &2114179893
 GameObject:
   m_ObjectHideFlags: 0
