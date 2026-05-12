@@ -185,7 +185,7 @@ public class TutorialManager : MonoBehaviour
     private IEnumerator BeginTutorial()
     {
         yield return new WaitForSeconds(0.5f);
-        game.ClickCoinHeads();
+        game.StartTutorialAsFirst();
         // 손패 교체는 OnHalfInningCardsDrawn에서 처리
     }
 
@@ -196,9 +196,13 @@ public class TutorialManager : MonoBehaviour
 
         batter.SetTutorialHand(new List<CardId>
         {
-            CardId.Hit, CardId.Bunt, CardId.Steal, CardId.Double, CardId.HomeRun,
-            CardId.GreatCatch, CardId.DoublePlay, CardId.Dazzle,
-            CardId.PinchHitter, CardId.PitcherChange,
+            CardId.Hit, CardId.Double, CardId.Triple, CardId.HomeRun,
+            CardId.Steal, CardId.Bunt,
+            CardId.GreatCatch, CardId.DoublePlay, CardId.TriplePlay,
+            CardId.LookingStrikeOut, CardId.SwingStrikeOut,
+            CardId.Dazzle, CardId.BadBounce,
+            CardId.PinchHitter, CardId.PinchRunner,
+            CardId.PitcherChange, CardId.DefensiveSub,
         });
 
         tutorialReady = true;

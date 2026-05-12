@@ -90,6 +90,20 @@ public class SingleLaneGame : MonoBehaviour
         DecideBattingOrder(true);
     }
 
+    public void StartTutorialAsFirst()
+    {
+        playerIsFirst = true;
+        inning = 1;
+        isTop = true;
+        SetCurrentBattingSide();
+        if (coinPanel != null) coinPanel.SetActive(false);
+        SetHideUI(true);
+        if (scoreBoard != null) scoreBoard.InitScoreBoard(playerIsFirst);
+        UpdateFieldUIVisibility();
+        WriteLog("튜토리얼 시작. 선공입니다.");
+        StartHalfInning();
+    }
+
     public void ClickCoinTails()
     {
         DecideBattingOrder(false);

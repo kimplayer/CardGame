@@ -29,6 +29,6 @@ public class GameStart : MonoBehaviour
 
     public void StartGame()
     {
-        SceneManager.LoadScene("DeckBuild");
+        SceneManager.LoadScene("GameMenu");
     }
 }
