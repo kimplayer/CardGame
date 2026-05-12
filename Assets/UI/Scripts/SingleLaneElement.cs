@@ -101,6 +101,27 @@ public class SingleLaneElement
         }
     }
 
+    // 튜토리얼용 손패 직접 설정 (덱/패 전부 교체)
+    public void SetTutorialHand(List<CardId> cards)
+    {
+        handCard.Clear();
+        setCard.Clear();
+        discard.Clear();
+        deck.Clear();
+
+        for (int i = 0; i < cards.Count; i++)
+            handCard[i] = cards[i];
+
+        nextCardId = cards.Count;
+
+        // 이후 드로우를 위한 최소 덱 구성
+        deck.AddRange(new CardId[]
+        {
+            CardId.Hit, CardId.Double, CardId.Steal,
+            CardId.Bunt, CardId.LookingStrikeOut,
+        });
+    }
+
     // 버린 카드로 덱 재구성
     public void ResetDeckFromDiscard()
     {

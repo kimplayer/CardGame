@@ -29,6 +29,10 @@ public class SingleLanePlayer : MonoBehaviour
 
     private SingleLaneElement singleLaneElement;
     private bool opponent;
+    private SingleLanePlayer enemyPlayer;
+
+    private GameObject lastScoringCardObject;
+    private Coroutine scoringCardCoroutine;
 
     [Header("카드 뒷면")]
     public Sprite cardBackSprite;
@@ -363,9 +367,11 @@ public class SingleLanePlayer : MonoBehaviour
 
     public bool TryActivateDefenseOrTrap(CardId attackCard,
                                          SingleLanePlayer attacker,
-                                         out string activatedName)
+                                         out string activatedName,
+                                         out CardId activatedCardId)
     {
         activatedName = "";
+        activatedCardId = CardId.Hit;
         List<int> keys = new List<int>(singleLaneElement.setCard.Keys);
 
         bool attackCanceled = false;
@@ -385,6 +391,7 @@ public class SingleLanePlayer : MonoBehaviour
                     ApplyDefenseEffect(setId, attacker);
                     RemoveSetCardByKey(key);
                     activatedName = GetCardName(setId);
+                    activatedCardId = setId;
                     attackCanceled = true;
                     defenseTriggered = true;
                     break;
@@ -392,6 +399,7 @@ public class SingleLanePlayer : MonoBehaviour
                 else
                 {
                     activatedName = "불규칙 바운드";
+                    activatedCardId = CardId.BadBounce;
                     RemoveSetCardByKey(key);
                 }
             }
@@ -400,7 +408,11 @@ public class SingleLanePlayer : MonoBehaviour
         if (!attackCanceled)
         {
             bool dazzled = attacker.TryActivateDazzle(attacker);
-            if (dazzled) activatedName = "눈부심";
+            if (dazzled)
+            {
+                activatedName = "눈부심";
+                activatedCardId = CardId.Dazzle;
+            }
         }
 
         return defenseTriggered;
@@ -485,7 +497,7 @@ public class SingleLanePlayer : MonoBehaviour
                 attacker.RemoveRunners(1); break;
 
             case CardId.TriplePlay:
-                attacker.AddOut(2);
+                attacker.AddOut(3);
                 attacker.RemoveRunners(2); break;
         }
     }
@@ -555,6 +567,113 @@ public class SingleLanePlayer : MonoBehaviour
             case 2: singleLaneElement.secondBase = true; break;
             case 3: singleLaneElement.thirdBase = true; break;
         }
+    }
+
+    public void ShowScoringCard(CardId cardId)
+    {
+        ClearScoringCard();
+
+        GameObject prefab = GetCardPrefab(cardId);
+        if (prefab == null) return;
+
+        lastScoringCardObject = Instantiate(prefab, transform);
+        lastScoringCardObject.transform.localPosition = new Vector2(0, battlePositionY);
+        lastScoringCardObject.transform.localScale = Vector3.one * 1.3f;
+        lastScoringCardObject.name = "ScoringCard";
+
+        Image img = lastScoringCardObject.GetComponent<Image>();
+        if (img != null)
+            img.color = new Color(1f, 0.85f, 0.1f);
+
+        Card cardComp = lastScoringCardObject.GetComponent<Card>();
+        if (cardComp != null)
+        {
+            cardComp.cardId = cardId;
+            cardComp.category = GetCardCategory(cardId);
+            if (!opponent) cardComp.SetInfo();
+            else cardComp.HideInfo();
+        }
+
+        Button btn = lastScoringCardObject.GetComponent<Button>();
+        if (btn != null) btn.interactable = false;
+
+        CardDragHandler drag = lastScoringCardObject.GetComponent<CardDragHandler>();
+        if (drag != null) drag.enabled = false;
+
+        scoringCardCoroutine = StartCoroutine(ClearScoringCardAfterDelay(1.5f));
+    }
+
+    private IEnumerator ClearScoringCardAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (lastScoringCardObject != null)
+        {
+            Destroy(lastScoringCardObject);
+            lastScoringCardObject = null;
+        }
+        scoringCardCoroutine = null;
+    }
+
+    public void ClearScoringCard()
+    {
+        if (scoringCardCoroutine != null)
+        {
+            StopCoroutine(scoringCardCoroutine);
+            scoringCardCoroutine = null;
+        }
+        if (lastScoringCardObject != null)
+        {
+            Destroy(lastScoringCardObject);
+            lastScoringCardObject = null;
+        }
+    }
+
+    public void SetTutorialHand(List<CardId> cards)
+    {
+        singleLaneElement.SetTutorialHand(cards);
+        RefreshAllUI();
+    }
+
+    public void SetEnemyPlayer(SingleLanePlayer enemy)
+    {
+        enemyPlayer = enemy;
+    }
+
+    public void UpdateCardDimState()
+    {
+        if (opponent) return;
+
+        foreach (Transform child in transform)
+        {
+            if (!child.name.StartsWith("Card_")) continue;
+
+            Card cardComp = child.GetComponent<Card>();
+            if (cardComp == null) continue;
+
+            Image img = child.GetComponent<Image>();
+            if (img == null) continue;
+
+            img.color = IsCardPlayable(cardComp.cardId)
+                ? Color.white
+                : new Color(0.5f, 0.5f, 0.5f, 0.6f);
+        }
+    }
+
+    private bool IsCardPlayable(CardId id)
+    {
+        switch (id)
+        {
+            case CardId.Bunt:
+                return singleLaneElement.firstBase;
+            case CardId.Steal:
+                return singleLaneElement.firstBase ||
+                       singleLaneElement.secondBase ||
+                       singleLaneElement.thirdBase;
+            case CardId.PitcherChange:
+            case CardId.DefensiveSub:
+                return enemyPlayer == null || enemyPlayer.GetHandCount() > 0;
+        }
+        return true;
     }
 
     public void RefreshAllUI()

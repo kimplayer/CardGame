@@ -18,11 +18,15 @@ public class SingleLaneGame : MonoBehaviour
     public ScrollRect logScrollRect;
     public Text logText;
 
+    [Header("튜토리얼 (일반 게임에서는 비워두세요)")]
+    public TutorialManager tutorialManager;
+
     private int inning = 1;
     private bool isTop = true;
     private bool gameOver = false;
     private bool playerIsFirst = true;
     private bool isPlayerBatting = true;
+    private bool isProcessingCard = false;
 
     private MCTSAgent mctsAgent;
 
@@ -68,6 +72,8 @@ public class SingleLaneGame : MonoBehaviour
 
         me.Initialize(false);
         you.Initialize(true);
+        me.SetEnemyPlayer(you);
+        you.SetEnemyPlayer(me);
 
         if (coinPanel != null)
             coinPanel.SetActive(true);
@@ -138,12 +144,17 @@ public class SingleLaneGame : MonoBehaviour
         SingleLanePlayer batter = GetCurrentBatter();
         batter.ResetOutCount();
         batter.ResetBases();
+        me.ClearScoringCard();
+        you.ClearScoringCard();
 
         // 드로우 전 한 프레임 대기
         yield return null;
 
         // 카드 드로우
         List<string> discarded = batter.DrawTurnCards();
+
+        // 튜토리얼: 드로우 직후 손패를 고정 패로 교체
+        tutorialManager?.OnHalfInningCardsDrawn(batter, isPlayerBatting);
 
         // 드로우 후 UI 갱신 대기
         yield return null;
@@ -179,7 +190,10 @@ public class SingleLaneGame : MonoBehaviour
         }
 
         if (isPlayerBatting)
+        {
+            me.UpdateCardDimState();
             SetButtons(true);
+        }
         else
         {
             SetButtons(false);
@@ -206,19 +220,26 @@ public class SingleLaneGame : MonoBehaviour
     // 드래그앤드랍으로 카드 드랍됐을 때
     public bool OnCardDropped(string cardKey, CardCategory category)
     {
-        // 상대 턴이거나 게임 종료면 실패 반환
-        if (gameOver || !isPlayerBatting) return false;
+        // 상대 턴이거나 게임 종료, 카드 처리 중이면 실패 반환
+        if (gameOver || !isPlayerBatting || isProcessingCard) return false;
 
         me.SetSelectedCardByKey(ParseKey(cardKey));
+        CardId selectedId = me.GetSelectedCardId();
+
+        if (tutorialManager != null && !tutorialManager.ValidateAction(selectedId, category))
+            return false;
 
         if (category == CardCategory.Defense || category == CardCategory.Trap)
         {
-            CardId selectedId = me.GetSelectedCardId();
             me.SetSelectedCard();
             WriteLog($"플레이어가 {me.GetCardName(selectedId)} 카드를 세트했다.");
         }
         else
         {
+            if ((selectedId == CardId.PitcherChange || selectedId == CardId.DefensiveSub)
+                && you.GetHandCount() <= 0)
+                return false;
+
             SetButtons(false);
             StartCoroutine(ProcessUseCard(me, you, true));
         }
@@ -230,6 +251,7 @@ public class SingleLaneGame : MonoBehaviour
     public void ClickEndTurn()
     {
         if (gameOver || !isPlayerBatting) return;
+        if (tutorialManager != null && !tutorialManager.ValidateEndTurn()) return;
 
         WriteLog("플레이어가 턴을 종료했다.");
         EndHalfInning();
@@ -326,6 +348,7 @@ public class SingleLaneGame : MonoBehaviour
                                    SingleLanePlayer defender,
                                    bool isPlayerAction)
     {
+        isProcessingCard = true;
         yield return new WaitForSeconds(0.5f);
 
         CardId cardId = attacker.UseSelectedCard();
@@ -334,24 +357,38 @@ public class SingleLaneGame : MonoBehaviour
         string actor = isPlayerAction ? "플레이어" : "상대";
         string cardName = attacker.GetCardName(cardId);
 
+        bool highlighted = false;
+
         if (category == CardCategory.Attack)
         {
             WriteLog($"{actor}가 {cardName} 카드를 사용했다.");
 
             bool blocked = defender.TryActivateDefenseOrTrap(
-                               cardId, attacker, out string activatedName);
+                               cardId, attacker, out string activatedName, out CardId activatedCardId);
 
             if (!blocked)
             {
+                int scoreBefore = attacker.GetScore();
                 attacker.ApplyAttackCard(cardId);
+                if (attacker.GetScore() > scoreBefore)
+                {
+                    attacker.ShowScoringCard(cardId);
+                    highlighted = true;
+                }
 
                 if (activatedName == "눈부심")
+                {
+                    attacker.ShowScoringCard(CardId.Dazzle);
+                    highlighted = true;
                     WriteLog($"{actor}의 공격 성공! 눈부심 발동으로 추가 진루.");
+                }
                 else
                     WriteLog($"{actor}의 {cardName} 효과가 적용되었다.");
             }
             else
             {
+                defender.ShowScoringCard(activatedCardId);
+                highlighted = true;
                 WriteLog($"수비 발동! {activatedName} 때문에 " +
                          $"{actor}의 {cardName} 카드가 취소되었다.");
             }
@@ -365,6 +402,9 @@ public class SingleLaneGame : MonoBehaviour
 
         UpdateGameUI();
 
+        if (highlighted)
+            yield return new WaitForSeconds(1.5f);
+
         if (scoreBoard != null)
             scoreBoard.OnScoreChanged(
                 inning, isTop,
@@ -377,6 +417,7 @@ public class SingleLaneGame : MonoBehaviour
         {
             yield return new WaitForSeconds(0.5f);
             WriteLog($"{actor}의 반이닝 종료. (3아웃)");
+            isProcessingCard = false;
             EndHalfInning();
             yield break;
         }
@@ -385,13 +426,20 @@ public class SingleLaneGame : MonoBehaviour
         {
             yield return new WaitForSeconds(0.5f);
             WriteLog($"{actor}의 반이닝 종료. (손패 없음)");
+            isProcessingCard = false;
             EndHalfInning();
             yield break;
         }
 
+        isProcessingCard = false;
+
         // 플레이어 턴이면 버튼 활성화
         if (isPlayerAction)
+        {
+            me.UpdateCardDimState();
+            tutorialManager?.OnPlayerActionComplete();
             SetButtons(true);
+        }
         // AI 턴이면 AITurnRoutine의 while이 처리
     }
 
@@ -519,6 +567,8 @@ public class SingleLaneGame : MonoBehaviour
         if (endTurnButton != null)
             endTurnButton.interactable = active;
     }
+
+    public void SetButtonsPublic(bool active) => SetButtons(active);
 
     private void AddInningDivider(string inningLabel)
     {

@@ -14,4 +14,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SingleLane.unity
     guid: 6958b36252b325c4587a0d5a8528f58d
+  - enabled: 1
+    path: Assets/Scenes/Tutorial.unity
+    guid: 44a17b6252c7e33408797edbe2299d68
   m_configObjects: {}
