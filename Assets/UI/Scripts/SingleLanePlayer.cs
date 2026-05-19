@@ -38,6 +38,10 @@ public class SingleLanePlayer : MonoBehaviour
     public Sprite cardBackSprite;
 
     private const int MAX_HAND_COUNT = 11;
+    private const float HAND_CARD_GAP = 180f;
+    private const float SET_CARD_GAP = 140f;
+    private const float LAYOUT_HORIZONTAL_PADDING = 24f;
+    private const float MIN_CARD_LAYOUT_SCALE = 0.35f;
 
     private void Awake()
     {
@@ -595,8 +599,8 @@ public class SingleLanePlayer : MonoBehaviour
         if (prefab == null) return;
 
         lastScoringCardObject = Instantiate(prefab, transform);
-        lastScoringCardObject.transform.localPosition = new Vector2(0, battlePositionY);
-        lastScoringCardObject.transform.localScale = Vector3.one * 1.3f;
+        SetUIPosition(lastScoringCardObject.transform, new Vector2(0, battlePositionY));
+        lastScoringCardObject.transform.localScale = Vector3.one * GetScoringCardScale(prefab);
         lastScoringCardObject.name = "ScoringCard";
 
         // alpha 명시적으로 1로 고정
@@ -733,8 +737,9 @@ public class SingleLanePlayer : MonoBehaviour
         ClearObjectsByPrefix("Card_");
 
         Vector2 position = new Vector2(0, handPositionY);
-        int gap = 180;
-        int startX = -(Mathf.Max(0, singleLaneElement.handCard.Count - 1) * gap) / 2;
+        float scale = GetCardLayoutScale(singleLaneElement.handCard.Count, HAND_CARD_GAP, GetFirstAvailablePrefab());
+        float gap = HAND_CARD_GAP * scale;
+        float startX = -(Mathf.Max(0, singleLaneElement.handCard.Count - 1) * gap) / 2f;
         int index = 0;
 
         foreach (var item in singleLaneElement.handCard)
@@ -745,7 +750,8 @@ public class SingleLanePlayer : MonoBehaviour
 
             GameObject temp = Instantiate(prefab, transform);
             position.x = startX + (index * gap);
-            temp.transform.localPosition = position;
+            SetUIPosition(temp.transform, position);
+            temp.transform.localScale = Vector3.one * scale;
 
             Card cardComp = temp.GetComponent<Card>();
             Button buttonComp = temp.GetComponent<Button>();
@@ -820,8 +826,9 @@ public class SingleLanePlayer : MonoBehaviour
         ClearObjectsByPrefix("Set_");
 
         Vector2 position = new Vector2(0, setPositionY);
-        int gap = 140;
-        int startX = -(Mathf.Max(0, singleLaneElement.setCard.Count - 1) * gap) / 2;
+        float scale = GetCardLayoutScale(singleLaneElement.setCard.Count, SET_CARD_GAP, GetFirstAvailablePrefab());
+        float gap = SET_CARD_GAP * scale;
+        float startX = -(Mathf.Max(0, singleLaneElement.setCard.Count - 1) * gap) / 2f;
         int index = 0;
 
         foreach (var item in singleLaneElement.setCard)
@@ -832,7 +839,8 @@ public class SingleLanePlayer : MonoBehaviour
 
             GameObject temp = Instantiate(prefab, transform);
             position.x = startX + (index * gap);
-            temp.transform.localPosition = position;
+            SetUIPosition(temp.transform, position);
+            temp.transform.localScale = Vector3.one * scale;
 
             Card cardComp = temp.GetComponent<Card>();
             Button buttonComp = temp.GetComponent<Button>();
@@ -869,6 +877,80 @@ public class SingleLanePlayer : MonoBehaviour
 
             index++;
         }
+    }
+
+    private void SetUIPosition(Transform target, Vector2 position)
+    {
+        RectTransform rect = target as RectTransform;
+        if (rect != null)
+            rect.anchoredPosition = position;
+        else
+            target.localPosition = position;
+    }
+
+    private float GetCardLayoutScale(int cardCount, float defaultGap, GameObject samplePrefab)
+    {
+        if (cardCount <= 1) return 1f;
+
+        float availableWidth = GetLayoutWidth() - (LAYOUT_HORIZONTAL_PADDING * 2f);
+        if (availableWidth <= 0f) return 1f;
+
+        float cardWidth = GetPrefabWidth(samplePrefab, defaultGap);
+        float defaultWidth = cardWidth + ((cardCount - 1) * defaultGap);
+        if (defaultWidth <= availableWidth) return 1f;
+
+        return Mathf.Clamp(availableWidth / defaultWidth, MIN_CARD_LAYOUT_SCALE, 1f);
+    }
+
+    private float GetScoringCardScale(GameObject prefab)
+    {
+        float baseScale = 1.3f;
+        float availableWidth = GetLayoutWidth() - (LAYOUT_HORIZONTAL_PADDING * 2f);
+        float cardWidth = GetPrefabWidth(prefab, HAND_CARD_GAP) * baseScale;
+
+        if (availableWidth <= 0f || cardWidth <= availableWidth)
+            return baseScale;
+
+        return Mathf.Max(MIN_CARD_LAYOUT_SCALE, availableWidth / cardWidth) * baseScale;
+    }
+
+    private float GetLayoutWidth()
+    {
+        RectTransform rect = transform as RectTransform;
+        if (rect != null && rect.rect.width > 0f)
+            return rect.rect.width;
+
+        Canvas canvas = GetComponentInParent<Canvas>();
+        RectTransform canvasRect = canvas != null ? canvas.transform as RectTransform : null;
+        if (canvasRect != null && canvasRect.rect.width > 0f)
+            return canvasRect.rect.width;
+
+        return Screen.width;
+    }
+
+    private float GetPrefabWidth(GameObject prefab, float fallbackGap)
+    {
+        if (prefab != null)
+        {
+            RectTransform prefabRect = prefab.GetComponent<RectTransform>();
+            if (prefabRect != null && prefabRect.rect.width > 0f)
+                return prefabRect.rect.width;
+        }
+
+        return fallbackGap;
+    }
+
+    private GameObject GetFirstAvailablePrefab()
+    {
+        if (cardPrefabs == null) return null;
+
+        for (int i = 0; i < cardPrefabs.Length; i++)
+        {
+            if (cardPrefabs[i] != null)
+                return cardPrefabs[i];
+        }
+
+        return null;
     }
 
     private void ClearObjectsByPrefix(string prefix)
