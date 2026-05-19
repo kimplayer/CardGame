@@ -483,6 +483,7 @@ MonoBehaviour:
   endTurnButton: {fileID: 1499691332}
   logScrollRect: {fileID: 1094327916}
   logText: {fileID: 1035048915}
+  tutorialManager: {fileID: 0}
   hideOnCoinPanel:
   - {fileID: 410088148}
   - {fileID: 1094327914}
@@ -2601,7 +2602,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -708.74, y: -195.37}
+  m_AnchoredPosition: {x: -639.63, y: -164.63}
   m_SizeDelta: {x: 700, y: 269.27}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1094327916
@@ -3769,7 +3770,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 406777172}
   m_HandleRect: {fileID: 406777171}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -4540,7 +4541,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -341.49966, y: 134.63492}
+  m_AnchoredPosition: {x: -341.49966, y: 134.635}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1531396504
@@ -4944,7 +4945,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -708.74, y: -351.27}
+  m_AnchoredPosition: {x: -639.63, y: -378}
   m_SizeDelta: {x: 700, y: 160}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1681644657

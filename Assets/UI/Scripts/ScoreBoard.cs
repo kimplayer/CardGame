@@ -23,7 +23,8 @@ public class ScoreBoard : MonoBehaviour
 
     private int[] myInningScores = new int[MAX_INNING + 1];
     private int[] enemyInningScores = new int[MAX_INNING + 1];
-    private bool[] inningPlayed = new bool[MAX_INNING + 1];
+    private bool[] myInningPlayed = new bool[MAX_INNING + 1];
+    private bool[] enemyInningPlayed = new bool[MAX_INNING + 1];
 
     private List<ScoreBoardCell> myScoreCells = new List<ScoreBoardCell>();
     private List<ScoreBoardCell> enemyScoreCells = new List<ScoreBoardCell>();
@@ -80,7 +81,8 @@ public class ScoreBoard : MonoBehaviour
         {
             myInningScores[i] = 0;
             enemyInningScores[i] = 0;
-            inningPlayed[i] = false;
+            myInningPlayed[i] = false;
+            enemyInningPlayed[i] = false;
         }
 
         // 헤더 행 생성
@@ -127,19 +129,21 @@ public class ScoreBoard : MonoBehaviour
         int myInningScore = myScore - prevMyScore;
         int enemyInningScore = enemyScore - prevEnemyScore;
 
+        bool isPlayerBatting = IsPlayerBatting(isTop);
+
         // 현재 공격 중인 팀의 이닝 점수 업데이트
-        if (currentIsPlayer)
+        if (isPlayerBatting)
         {
             myInningScores[inning] += myInningScore;
             prevMyScore = myScore;
+            myInningPlayed[inning] = true;
         }
         else
         {
             enemyInningScores[inning] += enemyInningScore;
             prevEnemyScore = enemyScore;
+            enemyInningPlayed[inning] = true;
         }
-
-        inningPlayed[inning] = true;
 
         // 총점 셀 갱신
         int lastIdx = myScoreCells.Count - 1;
@@ -156,7 +160,10 @@ public class ScoreBoard : MonoBehaviour
     public void OnHalfInningEnd(int inning, bool isTop,
                                  int myTotal, int enemyTotal)
     {
-        inningPlayed[inning] = true;
+        if (IsPlayerBatting(isTop))
+            myInningPlayed[inning] = true;
+        else
+            enemyInningPlayed[inning] = true;
 
         // 다음 반이닝을 위해 기준점 업데이트
         prevMyScore = myTotal;
@@ -196,11 +203,11 @@ public class ScoreBoard : MonoBehaviour
                 if (i == currentInning)
                 {
                     myCell.SetCurrent();
-                    myCell.SetText(myInningScores[i] > 0
+                    myCell.SetText(myInningPlayed[i] || myInningScores[i] > 0
                                    ? myInningScores[i].ToString()
                                    : "-");
                 }
-                else if (inningPlayed[i])
+                else if (myInningPlayed[i])
                 {
                     myCell.SetMyScore();
                     myCell.SetText(myInningScores[i].ToString());
@@ -220,11 +227,11 @@ public class ScoreBoard : MonoBehaviour
                 if (i == currentInning)
                 {
                     enemyCell.SetCurrent();
-                    enemyCell.SetText(enemyInningScores[i] > 0
+                    enemyCell.SetText(enemyInningPlayed[i] || enemyInningScores[i] > 0
                                       ? enemyInningScores[i].ToString()
                                       : "-");
                 }
-                else if (inningPlayed[i])
+                else if (enemyInningPlayed[i])
                 {
                     enemyCell.SetEnemyScore();
                     enemyCell.SetText(enemyInningScores[i].ToString());
@@ -244,6 +251,11 @@ public class ScoreBoard : MonoBehaviour
             myScoreCells[lastIndex].SetTotal();
             enemyScoreCells[lastIndex].SetTotal();
         }
+    }
+
+    private bool IsPlayerBatting(bool isTop)
+    {
+        return isTop ? playerIsFirst : !playerIsFirst;
     }
 
     // 헤더 셀 생성

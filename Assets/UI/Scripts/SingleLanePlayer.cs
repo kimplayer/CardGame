@@ -241,9 +241,13 @@ public class SingleLanePlayer : MonoBehaviour
     public Dictionary<int, CardId> GetHandCardDict() => singleLaneElement.handCard;
     public Dictionary<int, CardId> GetSetCardDict() => singleLaneElement.setCard;
 
-    public void SetSelectedCardByKey(int key)
+    public bool SetSelectedCardByKey(int key)
     {
+        if (!singleLaneElement.handCard.ContainsKey(key))
+            return false;
+
         singleLaneElement.selectedCard = "Card_" + key;
+        return true;
     }
 
     public void AdvanceAllRunnersOneBase()
@@ -376,6 +380,7 @@ public class SingleLanePlayer : MonoBehaviour
 
         bool attackCanceled = false;
         bool defenseTriggered = false;
+        bool trapTriggered = false;
 
         for (int i = 0; i < keys.Count; i++)
         {
@@ -400,12 +405,14 @@ public class SingleLanePlayer : MonoBehaviour
                 {
                     activatedName = "불규칙 바운드";
                     activatedCardId = CardId.BadBounce;
+                    trapTriggered = true;
                     RemoveSetCardByKey(key);
+                    break;
                 }
             }
         }
 
-        if (!attackCanceled)
+        if (!attackCanceled && !trapTriggered)
         {
             bool dazzled = attacker.TryActivateDazzle(attacker);
             if (dazzled)
@@ -571,6 +578,17 @@ public class SingleLanePlayer : MonoBehaviour
 
     public void ShowScoringCard(CardId cardId)
     {
+        ShowScoringCardTinted(cardId, new Color(1f, 0.85f, 0.1f), true);
+    }
+
+    // 튜토리얼용: 카드 정보 항상 표시, 자동 제거 없음
+    public void ShowCardForTutorial(CardId cardId, Color tint)
+    {
+        ShowScoringCardTinted(cardId, tint, false);
+    }
+
+    private void ShowScoringCardTinted(CardId cardId, Color tint, bool autoDestroy)
+    {
         ClearScoringCard();
 
         GameObject prefab = GetCardPrefab(cardId);
@@ -581,17 +599,24 @@ public class SingleLanePlayer : MonoBehaviour
         lastScoringCardObject.transform.localScale = Vector3.one * 1.3f;
         lastScoringCardObject.name = "ScoringCard";
 
+        // alpha 명시적으로 1로 고정
         Image img = lastScoringCardObject.GetComponent<Image>();
         if (img != null)
-            img.color = new Color(1f, 0.85f, 0.1f);
+        {
+            Color c = tint;
+            c.a = 1f;
+            img.color = c;
+        }
+
+        CanvasGroup cg = lastScoringCardObject.GetComponent<CanvasGroup>();
+        if (cg != null) cg.alpha = 1f;
 
         Card cardComp = lastScoringCardObject.GetComponent<Card>();
         if (cardComp != null)
         {
             cardComp.cardId = cardId;
             cardComp.category = GetCardCategory(cardId);
-            if (!opponent) cardComp.SetInfo();
-            else cardComp.HideInfo();
+            cardComp.SetInfo();
         }
 
         Button btn = lastScoringCardObject.GetComponent<Button>();
@@ -600,7 +625,9 @@ public class SingleLanePlayer : MonoBehaviour
         CardDragHandler drag = lastScoringCardObject.GetComponent<CardDragHandler>();
         if (drag != null) drag.enabled = false;
 
-        scoringCardCoroutine = StartCoroutine(ClearScoringCardAfterDelay(1.5f));
+        scoringCardCoroutine = autoDestroy
+            ? StartCoroutine(ClearScoringCardAfterDelay(1.5f))
+            : null;
     }
 
     private IEnumerator ClearScoringCardAfterDelay(float delay)
@@ -632,6 +659,20 @@ public class SingleLanePlayer : MonoBehaviour
     {
         singleLaneElement.SetTutorialHand(cards);
         RefreshAllUI();
+    }
+
+    public void SetBases(bool r1, bool r2, bool r3)
+    {
+        singleLaneElement.firstBase = r1;
+        singleLaneElement.secondBase = r2;
+        singleLaneElement.thirdBase = r3;
+        UpdateBaseUI();
+    }
+
+    public void TutorialForceSetCard(CardId card)
+    {
+        singleLaneElement.ForceAddSetCard(card);
+        RefreshSetUI();
     }
 
     public void SetEnemyPlayer(SingleLanePlayer enemy)
@@ -675,6 +716,8 @@ public class SingleLanePlayer : MonoBehaviour
         }
         return true;
     }
+
+    public bool CanPlayCard(CardId id) => IsCardPlayable(id);
 
     public void RefreshAllUI()
     {
@@ -767,7 +810,7 @@ public class SingleLanePlayer : MonoBehaviour
     private GameObject GetCardPrefab(CardId id)
     {
         int index = (int)id;
-        if (cardPrefabs == null || index >= cardPrefabs.Length) return null;
+        if (cardPrefabs == null || index < 0 || index >= cardPrefabs.Length) return null;
         if (cardPrefabs[index] == null) return null;
         return cardPrefabs[index];
     }

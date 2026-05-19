@@ -39,9 +39,14 @@ public class LongPressInfo : MonoBehaviour,
         // 우클릭 무시
         if (eventData.button != PointerEventData.InputButton.Left) return;
 
+        if (infoShowing)
+        {
+            HideInfo();
+            return;
+        }
+
         isPressing = true;
         pressTimer = 0f;
-        infoShowing = false;
     }
 
     public void OnPointerUp(PointerEventData eventData)

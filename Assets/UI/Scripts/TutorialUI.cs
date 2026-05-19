@@ -6,22 +6,33 @@ public class TutorialUI : MonoBehaviour
     [Header("Dialog")]
     public GameObject dialogPanel;
     public Text messageText;
-    public Button nextButton;
+    public Text hintText;           // "▼ 탭하여 계속" 텍스트 (선택)
+    public Text instructionText;    // 액션 단계 안내 텍스트
 
     [Header("Arrow")]
     public RectTransform arrowRect;
 
     public System.Func<Transform> targetProvider;
 
+    private Button panelButton;
+    private Image panelImage;
+
     private void Awake()
     {
-        // 배경 패널이 게임 UI 클릭을 막지 않도록
-        if (dialogPanel != null)
-        {
-            Image panelImage = dialogPanel.GetComponent<Image>();
-            if (panelImage != null)
-                panelImage.raycastTarget = false;
-        }
+        panelImage = dialogPanel.GetComponent<Image>();
+
+        panelButton = dialogPanel.GetComponent<Button>();
+        if (panelButton == null)
+            panelButton = dialogPanel.AddComponent<Button>();
+
+        // 클릭 시 색상 변화 최소화
+        ColorBlock cb = panelButton.colors;
+        cb.highlightedColor = Color.white;
+        cb.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+        cb.selectedColor = Color.white;
+        panelButton.colors = cb;
+
+        SetPanelClickable(false);
         Hide();
     }
 
@@ -41,11 +52,21 @@ public class TutorialUI : MonoBehaviour
         arrowRect.position = new Vector3(screenPos.x, screenPos.y + 90f, 0f);
     }
 
-    public void Show(string message, bool showNext)
+    private void SetPanelClickable(bool clickable)
+    {
+        if (panelImage != null)
+            panelImage.raycastTarget = clickable;
+        if (panelButton != null)
+            panelButton.interactable = clickable;
+        if (hintText != null)
+            hintText.gameObject.SetActive(clickable);
+    }
+
+    public void Show(string message, bool clickable)
     {
         dialogPanel.SetActive(true);
         messageText.text = message;
-        nextButton.gameObject.SetActive(showNext);
+        SetPanelClickable(clickable);
     }
 
     public void ShowArrow(System.Func<Transform> provider)
@@ -62,15 +83,29 @@ public class TutorialUI : MonoBehaviour
         targetProvider = null;
     }
 
+    public void ShowInstruction(string text)
+    {
+        if (instructionText == null) return;
+        instructionText.text = text;
+        instructionText.gameObject.SetActive(true);
+    }
+
+    public void HideInstruction()
+    {
+        if (instructionText != null)
+            instructionText.gameObject.SetActive(false);
+    }
+
     public void Hide()
     {
         if (dialogPanel != null) dialogPanel.SetActive(false);
+        HideInstruction();
         HideArrow();
     }
 
     public void SetNextCallback(System.Action callback)
     {
-        nextButton.onClick.RemoveAllListeners();
-        nextButton.onClick.AddListener(() => callback?.Invoke());
+        panelButton.onClick.RemoveAllListeners();
+        panelButton.onClick.AddListener(() => callback?.Invoke());
     }
 }

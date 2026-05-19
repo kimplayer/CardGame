@@ -31,7 +31,12 @@ public class OutCountUI : MonoBehaviour
 
         // 아웃 증가 시 애니메이션
         if (count > prevCount)
-            StartCoroutine(FlashNewOut(count));
+        {
+            if (isFlashing)
+                RefreshUI();
+            else
+                StartCoroutine(FlashNewOut(count));
+        }
         else
             RefreshUI();
     }
@@ -90,5 +95,6 @@ public class OutCountUI : MonoBehaviour
         }
 
         isFlashing = false;
+        RefreshUI();
     }
 }

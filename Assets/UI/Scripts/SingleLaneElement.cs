@@ -122,6 +122,13 @@ public class SingleLaneElement
         });
     }
 
+    // 세트존에 카드 강제 추가 (튜토리얼용)
+    public void ForceAddSetCard(CardId card)
+    {
+        setCard[nextCardId] = card;
+        nextCardId++;
+    }
+
     // 버린 카드로 덱 재구성
     public void ResetDeckFromDiscard()
     {

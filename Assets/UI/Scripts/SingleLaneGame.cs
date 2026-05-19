@@ -237,15 +237,22 @@ public class SingleLaneGame : MonoBehaviour
         // 상대 턴이거나 게임 종료, 카드 처리 중이면 실패 반환
         if (gameOver || !isPlayerBatting || isProcessingCard) return false;
 
-        me.SetSelectedCardByKey(ParseKey(cardKey));
+        if (!me.SetSelectedCardByKey(ParseKey(cardKey)))
+            return false;
+
         CardId selectedId = me.GetSelectedCardId();
+
+        if (!me.CanPlayCard(selectedId))
+            return false;
 
         if (tutorialManager != null && !tutorialManager.ValidateAction(selectedId, category))
             return false;
 
         if (category == CardCategory.Defense || category == CardCategory.Trap)
         {
-            me.SetSelectedCard();
+            if (!me.SetSelectedCard())
+                return false;
+
             WriteLog($"플레이어가 {me.GetCardName(selectedId)} 카드를 세트했다.");
         }
         else
@@ -265,8 +272,11 @@ public class SingleLaneGame : MonoBehaviour
     public void ClickEndTurn()
     {
         if (gameOver || !isPlayerBatting) return;
-        if (tutorialManager != null && !tutorialManager.ValidateEndTurn()) return;
-
+        if (tutorialManager != null)
+        {
+            tutorialManager.ValidateEndTurn();
+            return;
+        }
         WriteLog("플레이어가 턴을 종료했다.");
         EndHalfInning();
     }
@@ -308,7 +318,14 @@ public class SingleLaneGame : MonoBehaviour
                 yield break;
             }
 
-            ApplyMCTSAction(batter, action);
+            if (!TryResolveMCTSAction(batter, action, out int resolvedKey, out bool shouldSetCard))
+            {
+                WriteLog("상대가 사용할 수 있는 카드를 찾지 못해 턴을 종료했다.");
+                EndHalfInning();
+                yield break;
+            }
+
+            yield return StartCoroutine(ApplyMCTSAction(batter, resolvedKey, shouldSetCard));
 
             yield return new WaitForSeconds(0.7f);
         }
@@ -339,22 +356,77 @@ public class SingleLaneGame : MonoBehaviour
         return state;
     }
 
-    private void ApplyMCTSAction(SingleLanePlayer batter, MCTSAction action)
+    private bool TryResolveMCTSAction(SingleLanePlayer batter, MCTSAction action,
+                                      out int resolvedKey, out bool shouldSetCard)
     {
+        resolvedKey = -1;
+        shouldSetCard = false;
+
         List<int> keys = new List<int>(batter.GetHandCardDict().Keys);
-        if (action.handIndex < 0 || action.handIndex >= keys.Count) return;
-
-        int key = keys[action.handIndex];
-        batter.SetSelectedCardByKey(key);
-
-        if (action.actionType == MCTSActionType.SetCard)
+        if (action.handIndex >= 0 && action.handIndex < keys.Count)
         {
-            batter.SetSelectedCard();
+            int key = keys[action.handIndex];
+            CardId selectedId = batter.GetHandCardDict()[key];
+            bool selectedIsSetCard = IsSetCardCategory(batter.GetCardCategory(selectedId));
+            bool actionWantsSet = action.actionType == MCTSActionType.SetCard;
+            if (batter.CanPlayCard(selectedId) && selectedIsSetCard == actionWantsSet)
+            {
+                resolvedKey = key;
+                shouldSetCard = selectedIsSetCard;
+                return true;
+            }
+        }
+
+        bool preferSet = action.actionType == MCTSActionType.SetCard;
+        if (TryFindPlayableCard(batter, preferSet, out resolvedKey, out shouldSetCard))
+            return true;
+
+        return TryFindPlayableCard(batter, !preferSet, out resolvedKey, out shouldSetCard);
+    }
+
+    private bool TryFindPlayableCard(SingleLanePlayer batter, bool preferSet,
+                                     out int resolvedKey, out bool shouldSetCard)
+    {
+        resolvedKey = -1;
+        shouldSetCard = false;
+
+        foreach (var pair in batter.GetHandCardDict())
+        {
+            CardId cardId = pair.Value;
+            if (!batter.CanPlayCard(cardId)) continue;
+
+            CardCategory category = batter.GetCardCategory(cardId);
+            bool isSetCard = IsSetCardCategory(category);
+            if (isSetCard != preferSet) continue;
+
+            resolvedKey = pair.Key;
+            shouldSetCard = isSetCard;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsSetCardCategory(CardCategory category)
+    {
+        return category == CardCategory.Defense || category == CardCategory.Trap;
+    }
+
+    private IEnumerator ApplyMCTSAction(SingleLanePlayer batter, int key, bool shouldSetCard)
+    {
+        if (!batter.SetSelectedCardByKey(key))
+            yield break;
+
+        if (shouldSetCard)
+        {
+            if (!batter.SetSelectedCard())
+                yield break;
+
             WriteLog("상대가 세트 카드를 1장 배치했다.");
         }
         else
         {
-            StartCoroutine(ProcessUseCard(batter, me, false));
+            yield return StartCoroutine(ProcessUseCard(batter, me, false));
         }
     }
 
@@ -396,6 +468,12 @@ public class SingleLaneGame : MonoBehaviour
                     highlighted = true;
                     WriteLog($"{actor}의 공격 성공! 눈부심 발동으로 추가 진루.");
                 }
+                else if (activatedName == "불규칙 바운드")
+                {
+                    attacker.ShowScoringCard(CardId.BadBounce);
+                    highlighted = true;
+                    WriteLog($"{actor}의 공격 성공! 불규칙 바운드 발동으로 상대 수비가 취소되었다.");
+                }
                 else
                     WriteLog($"{actor}의 {cardName} 효과가 적용되었다.");
             }
@@ -426,23 +504,26 @@ public class SingleLaneGame : MonoBehaviour
                 me.GetScore(), you.GetScore()
             );
 
-        // 핵심 수정 부분
-        if (attacker.GetOutCount() >= 3)
+        // 튜토리얼 중에는 자동 반이닝 종료 건너뜀 (튜토리얼 매니저가 진행 관리)
+        if (tutorialManager == null)
         {
-            yield return new WaitForSeconds(0.5f);
-            WriteLog($"{actor}의 반이닝 종료. (3아웃)");
-            isProcessingCard = false;
-            EndHalfInning();
-            yield break;
-        }
+            if (attacker.GetOutCount() >= 3)
+            {
+                yield return new WaitForSeconds(0.5f);
+                WriteLog($"{actor}의 반이닝 종료. (3아웃)");
+                isProcessingCard = false;
+                EndHalfInning();
+                yield break;
+            }
 
-        if (attacker.GetHandCount() <= 0)
-        {
-            yield return new WaitForSeconds(0.5f);
-            WriteLog($"{actor}의 반이닝 종료. (손패 없음)");
-            isProcessingCard = false;
-            EndHalfInning();
-            yield break;
+            if (attacker.GetHandCount() <= 0)
+            {
+                yield return new WaitForSeconds(0.5f);
+                WriteLog($"{actor}의 반이닝 종료. (손패 없음)");
+                isProcessingCard = false;
+                EndHalfInning();
+                yield break;
+            }
         }
 
         isProcessingCard = false;
@@ -469,67 +550,60 @@ public class SingleLaneGame : MonoBehaviour
 
         SetButtons(false);
 
-        if (isTop)
-        {
-            isTop = false;
-        }
-        else
-        {
-            if (CheckWalkOff())
-            {
-                WriteLog("끝내기 발생!");
-                isEndingHalfInning = false;
-                FinishGame();
-                return;
-            }
+        int endedInning = inning;
+        bool endedIsTop = isTop;
 
-            inning++;
-            isTop = true;
-        }
+        // 스코어보드는 방금 끝난 반이닝 기준으로 갱신
+        if (scoreBoard != null)
+            scoreBoard.OnHalfInningEnd(
+                endedInning, endedIsTop,
+                me.GetScore(),
+                you.GetScore()
+            );
 
-        if (CheckGameOverByRule())
+        if (CheckGameOverAfterHalfInning(endedInning, endedIsTop))
         {
             isEndingHalfInning = false;
             FinishGame();
             return;
         }
 
+        if (isTop)
+        {
+            isTop = false;
+        }
+        else
+        {
+            inning++;
+            isTop = true;
+        }
+
         SetCurrentBattingSide();
         UpdateFieldUIVisibility();
         UpdateGameUI();
-
-        // 스코어보드 갱신
-        if (scoreBoard != null)
-            scoreBoard.OnHalfInningEnd(
-                inning, isTop,
-                me.GetScore(),
-                you.GetScore()
-            );
 
         isEndingHalfInning = false;
         StartHalfInning();
     }
 
-    private bool CheckWalkOff()
+    private bool CheckGameOverAfterHalfInning(int endedInning, bool endedIsTop)
     {
-        if (inning < 9) return false;
-        if (isTop) return false;
+        if (endedInning < 9) return false;
 
-        return playerIsFirst
-            ? you.GetScore() > me.GetScore()
-            : me.GetScore() > you.GetScore();
-    }
+        int firstScore = playerIsFirst ? me.GetScore() : you.GetScore();
+        int secondScore = playerIsFirst ? you.GetScore() : me.GetScore();
 
-    private bool CheckGameOverByRule()
-    {
-        if (inning < 9) return false;
-        if (inning == 9 && !isTop) return false;
+        if (endedIsTop)
+            return secondScore > firstScore;
 
-        if (inning == 10 && isTop)
-            return me.GetScore() != you.GetScore();
+        if (firstScore != secondScore)
+        {
+            if (secondScore > firstScore)
+                WriteLog("끝내기 발생!");
+            return true;
+        }
 
-        if (inning <= 12) return false;
-        return true;
+        return endedInning >= 12;
     }
 
     private void FinishGame()
@@ -661,5 +735,71 @@ public class SingleLaneGame : MonoBehaviour
     {
         UnityEngine.SceneManagement.SceneManager
             .LoadScene("SingleLane");
+    }
+
+    // ── 튜토리얼 헬퍼 ───────────────────────────────────
+
+    public void TutorialSetMyBases(bool r1, bool r2, bool r3) => me.SetBases(r1, r2, r3);
+
+    public void TutorialSetOpponentBases(bool r1, bool r2, bool r3) => you.SetBases(r1, r2, r3);
+
+    public void TutorialResetOpponentState()
+    {
+        you.ResetOutCount();
+        you.ResetBases();
+        you.RefreshAllUI();
+    }
+
+    public void TutorialSetOpponentSetCard(CardId card) => you.TutorialForceSetCard(card);
+
+    public void TutorialSetOpponentHand(List<CardId> cards) => you.SetTutorialHand(cards);
+
+    public void TutorialStartOpponentAttackSimulation(CardId cardId)
+    {
+        StartCoroutine(TutorialSimulateOpponentAttack(cardId));
+    }
+
+    private IEnumerator TutorialSimulateOpponentAttack(CardId cardId)
+    {
+        // 1. 상대 공격 카드 표시 (주황색)
+        you.ShowCardForTutorial(cardId, new Color(1f, 0.5f, 0.1f));
+        yield return new WaitForSeconds(1.0f);
+        you.ClearScoringCard();
+        yield return new WaitForSeconds(0.2f);
+
+        // 2. 수비 발동 판정
+        bool blocked = me.TryActivateDefenseOrTrap(
+            cardId, you, out string activatedName, out CardId activatedCardId);
+
+        // 3. 내 수비 카드 하이라이트 (금색) 또는 공격 결과
+        bool highlighted = false;
+        if (!blocked)
+        {
+            int scoreBefore = you.GetScore();
+            you.ApplyAttackCard(cardId);
+            if (you.GetScore() > scoreBefore)
+            {
+                you.ShowScoringCard(cardId);
+                highlighted = true;
+            }
+            if (activatedName == "불규칙 바운드")
+            {
+                me.ShowScoringCard(CardId.BadBounce);
+                highlighted = true;
+            }
+        }
+        else
+        {
+            me.ShowScoringCard(activatedCardId);
+            highlighted = true;
+        }
+
+        // 4. 하이라이트 대기
+        UpdateGameUI();
+        if (highlighted) yield return new WaitForSeconds(1.5f);
+        me.UpdateCardDimState();
+
+        // 5. 튜토리얼 대화창 표시 (OnOpponentAttackSimulated → AdvanceStep → WaitNext)
+        tutorialManager?.OnOpponentAttackSimulated();
     }
 }
