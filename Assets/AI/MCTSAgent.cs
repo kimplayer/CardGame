@@ -206,13 +206,14 @@ public class MCTSAgent
 
         CardId card = state.attackerHand[action.handIndex];
         state.attackerHand.RemoveAt(action.handIndex);
-        state.attackerDiscard.Add(card);
 
         if (action.actionType == MCTSActionType.SetCard)
         {
             state.attackerSetZone.Add(card);
             return state;
         }
+
+        state.attackerDiscard.Add(card);
 
         ApplyCardEffect(state, card);
         return state;
@@ -323,7 +324,7 @@ public class MCTSAgent
                 state.attackerOut += 2;
                 RemoveFrontRunner(state); break;
             case CardId.TriplePlay:
-                state.attackerOut += 2;
+                state.attackerOut += 3;
                 RemoveFrontRunner(state);
                 RemoveFrontRunner(state); break;
         }

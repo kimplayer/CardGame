@@ -45,6 +45,7 @@ public class OutCountUI : MonoBehaviour
     public void ResetOutCount()
     {
         currentOutCount = 0;
+        isFlashing = false;
         RefreshUI();
     }
 

@@ -26,6 +26,7 @@ public class SingleLaneElement
     public bool thirdBase;
 
     private int nextCardId;
+    private List<CardId> originalCustomDeck = null;
 
     public SingleLaneElement()
     {
@@ -83,6 +84,7 @@ public class SingleLaneElement
     // 커스텀 덱 설정 (덱빌딩 씬에서 넘어온 덱 사용)
     public void SetCustomDeck(List<CardId> customDeck)
     {
+        originalCustomDeck = new List<CardId>(customDeck);
         deck.Clear();
         deck.AddRange(customDeck);
         discard.Clear();
@@ -147,6 +149,11 @@ public class SingleLaneElement
             {
                 if (discard.Count > 0)
                     ResetDeckFromDiscard();
+                else if (originalCustomDeck != null)
+                {
+                    deck.AddRange(originalCustomDeck);
+                    ShuffleDeck();
+                }
                 else
                 {
                     ResetDeck();

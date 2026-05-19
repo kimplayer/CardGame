@@ -120,6 +120,7 @@ public class GameState
     public List<MCTSAction> GetLegalActions()
     {
         List<MCTSAction> actions = new List<MCTSAction>();
+        bool hasRunner = attackerFirst || attackerSecond || attackerThird;
 
         for (int i = 0; i < attackerHand.Count; i++)
         {
@@ -127,9 +128,15 @@ public class GameState
             CardCategory cat = GetCategory(card);
 
             if (cat == CardCategory.Defense || cat == CardCategory.Trap)
+            {
                 actions.Add(new MCTSAction(MCTSActionType.SetCard, card, i));
+            }
             else
+            {
+                if (card == CardId.Bunt && !attackerFirst) continue;
+                if (card == CardId.Steal && !hasRunner) continue;
                 actions.Add(new MCTSAction(MCTSActionType.UseCard, card, i));
+            }
         }
 
         actions.Add(new MCTSAction(MCTSActionType.EndTurn, CardId.Hit, -1));

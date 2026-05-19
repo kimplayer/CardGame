@@ -271,7 +271,7 @@ public class SingleLaneGame : MonoBehaviour
     // 턴 종료 버튼
     public void ClickEndTurn()
     {
-        if (gameOver || !isPlayerBatting) return;
+        if (gameOver || !isPlayerBatting || isProcessingCard) return;
         if (tutorialManager != null)
         {
             tutorialManager.ValidateEndTurn();
@@ -579,6 +579,12 @@ public class SingleLaneGame : MonoBehaviour
         }
 
         SetCurrentBattingSide();
+
+        // 패널이 표시되기 전에 다음 타자의 UI를 미리 초기화
+        SingleLanePlayer nextBatter = GetCurrentBatter();
+        nextBatter.ResetOutCount();
+        nextBatter.ResetBases();
+
         UpdateFieldUIVisibility();
         UpdateGameUI();
 
