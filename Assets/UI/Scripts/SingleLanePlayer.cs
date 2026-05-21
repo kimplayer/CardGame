@@ -416,15 +416,8 @@ public class SingleLanePlayer : MonoBehaviour
             }
         }
 
-        if (!attackCanceled && !trapTriggered)
-        {
-            bool dazzled = attacker.TryActivateDazzle(attacker);
-            if (dazzled)
-            {
-                activatedName = "눈부심";
-                activatedCardId = CardId.Dazzle;
-            }
-        }
+        // 눈부심(Dazzle)은 공격 카드 적용 이후에 ProcessUseCard에서 직접 처리
+        // (공격 적용 전에 진루하면 순서가 역전되므로 여기서 처리하지 않음)
 
         return defenseTriggered;
     }
@@ -682,6 +675,20 @@ public class SingleLanePlayer : MonoBehaviour
     public void SetEnemyPlayer(SingleLanePlayer enemy)
     {
         enemyPlayer = enemy;
+    }
+
+    // 공유 UI 연결 (반이닝 시작 시 SingleLaneGame이 주입)
+    public void SetSharedUI(OutCountUI outUI, BaseDiamond diamond)
+    {
+        outCountUI = outUI;
+        baseDiamond = diamond;
+    }
+
+    // 아웃카운트 + 베이스 UI만 갱신 (공유 UI 연결 후 상태 동기화용)
+    public void RefreshFieldUI()
+    {
+        UpdateOutUI();
+        UpdateBaseUI();
     }
 
     public void UpdateCardDimState()

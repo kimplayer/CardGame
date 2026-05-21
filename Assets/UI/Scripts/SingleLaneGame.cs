@@ -39,6 +39,10 @@ public class SingleLaneGame : MonoBehaviour
     [Header("스코어보드")]
     public ScoreBoard scoreBoard;
 
+    [Header("공유 필드 UI (하나만 씬에 배치)")]
+    public OutCountUI sharedOutCountUI;
+    public BaseDiamond sharedBaseDiamond;
+
     [Header("재시작 버튼")]
     public Button restartButton;   // 덱 다시 고르기
     public Button playAgainButton; // 같은 덱으로 시작
@@ -155,7 +159,13 @@ public class SingleLaneGame : MonoBehaviour
     {
         if (gameOver) yield break;
 
+        // ── 공유 UI를 현재 타격자에 연결 (초기화보다 먼저 연결해야 공유 UI도 리셋됨)
         SingleLanePlayer batter = GetCurrentBatter();
+        me.SetSharedUI(null, null);
+        you.SetSharedUI(null, null);
+        batter.SetSharedUI(sharedOutCountUI, sharedBaseDiamond);
+
+        // ── 이닝 시작 시 아웃카운트 & 다이아몬드 초기화
         batter.ResetOutCount();
         batter.ResetBases();
         me.ClearScoringCard();
@@ -454,6 +464,7 @@ public class SingleLaneGame : MonoBehaviour
 
             if (!blocked)
             {
+                // 1) 공격 카드 효과 적용
                 int scoreBefore = attacker.GetScore();
                 attacker.ApplyAttackCard(cardId);
                 if (attacker.GetScore() > scoreBefore)
@@ -462,13 +473,8 @@ public class SingleLaneGame : MonoBehaviour
                     highlighted = true;
                 }
 
-                if (activatedName == "눈부심")
-                {
-                    attacker.ShowScoringCard(CardId.Dazzle);
-                    highlighted = true;
-                    WriteLog($"{actor}의 공격 성공! 눈부심 발동으로 추가 진루.");
-                }
-                else if (activatedName == "불규칙 바운드")
+                // 2) 불규칙 바운드 로그 (수비 취소 알림)
+                if (activatedName == "불규칙 바운드")
                 {
                     attacker.ShowScoringCard(CardId.BadBounce);
                     highlighted = true;
@@ -476,6 +482,16 @@ public class SingleLaneGame : MonoBehaviour
                 }
                 else
                     WriteLog($"{actor}의 {cardName} 효과가 적용되었다.");
+
+                // 3) 눈부심: 공격 적용 후에 체크해야 진루 순서가 올바름
+                //    (불규칙 바운드로 수비가 취소돼도 공격이 통했으므로 눈부심 발동)
+                bool dazzled = attacker.TryActivateDazzle(attacker);
+                if (dazzled)
+                {
+                    attacker.ShowScoringCard(CardId.Dazzle);
+                    highlighted = true;
+                    WriteLog($"눈부심 발동! {actor}의 주자가 추가로 1루씩 더 진루했다.");
+                }
             }
             else
             {
@@ -580,8 +596,11 @@ public class SingleLaneGame : MonoBehaviour
 
         SetCurrentBattingSide();
 
-        // 패널이 표시되기 전에 다음 타자의 UI를 미리 초기화
+        // 패널이 표시되기 전에 다음 타자의 공유 UI 연결 & 초기화
         SingleLanePlayer nextBatter = GetCurrentBatter();
+        me.SetSharedUI(null, null);
+        you.SetSharedUI(null, null);
+        nextBatter.SetSharedUI(sharedOutCountUI, sharedBaseDiamond);
         nextBatter.ResetOutCount();
         nextBatter.ResetBases();
 
@@ -701,8 +720,14 @@ public class SingleLaneGame : MonoBehaviour
 
     private void UpdateFieldUIVisibility()
     {
-        me.SetFieldUIVisible(isPlayerBatting);
-        you.SetFieldUIVisible(!isPlayerBatting);
+        // 공유 UI 방식: 개별 패널은 모두 숨기고, 공유 UI를 현재 타격자 상태로 갱신
+        me.SetFieldUIVisible(false);
+        you.SetFieldUIVisible(false);
+
+        SingleLanePlayer batter = GetCurrentBatter();
+        // SetSharedUI가 이미 호출된 상태라면 참조만 갱신, 아닌 경우 여기서 연결
+        batter.SetSharedUI(sharedOutCountUI, sharedBaseDiamond);
+        batter.RefreshFieldUI();
     }
 
     private int ParseKey(string cardKey)

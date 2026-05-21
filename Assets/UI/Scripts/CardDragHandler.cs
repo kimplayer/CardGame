@@ -37,6 +37,10 @@ public class CardDragHandler : MonoBehaviour,
         LongPressInfo longPress = GetComponent<LongPressInfo>();
         if (longPress != null && longPress.IsShowingInfo) return;
 
+        // 드래그 시작 시 롱프레스 타이머를 명시적으로 취소
+        // (모바일: 미세한 움직임으로 OnBeginDrag가 발동해도 롱프레스 상태 정리)
+        longPress?.CancelPress();
+
         draggingCard = this;
         droppedSuccessfully = false; // 드래그 시작 시 초기화
         originalPosition = rectTransform.position;

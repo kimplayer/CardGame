@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 
 // 개별 카드 오브젝트에 붙는 스크립트
-// 카드 이름 / 카드 설명 / 우클릭 설명창 기능을 담당
+// 카드 이름 / 카드 설명 / 우클릭·롱프레스 설명창 기능을 담당
 public class Card : MonoBehaviour, IPointerClickHandler
 {
     public CardId cardId;
@@ -14,7 +14,15 @@ public class Card : MonoBehaviour, IPointerClickHandler
     public GameObject infoText;
     public bool rightClickEnabled = true;
 
+    // 정보창 표시 시 카드 확대 배율
+    private const float INFO_SCALE_MULTIPLIER = 2.0f;
+
     private GameObject instanceInfoText;
+    private bool isInfoShowing = false;
+
+    // 확대 전 원래 상태 저장
+    private Vector3 originalScale;
+    private int originalSiblingIndex;
 
     // 카드 생성 시 설명창 프리팹 생성
     private void Awake()
@@ -27,33 +35,37 @@ public class Card : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    // 우클릭 시 설명창 닫기
+    // 우클릭 시 설명창 닫기 (PC)
     private void Update()
     {
-        if (rightClickEnabled && Input.GetMouseButtonDown(1) && instanceInfoText != null)
-        {
-            instanceInfoText.SetActive(false);
-        }
+        if (rightClickEnabled && Input.GetMouseButtonDown(1) && isInfoShowing)
+            HideInfoDisplay();
     }
 
-    // 우클릭 시 설명창 열기
+    // 우클릭 시 설명창 열기 (PC)
     public void OnPointerClick(PointerEventData eventData)
     {
         if (rightClickEnabled &&
-            eventData.button == PointerEventData.InputButton.Right &&
-            instanceInfoText != null)
+            eventData.button == PointerEventData.InputButton.Right)
         {
-            instanceInfoText.SetActive(true);
+            if (isInfoShowing)
+                HideInfoDisplay();
+            else
+                ShowInfoDisplay();
         }
     }
 
-    // 설명창 열고 닫기 + 우클릭 허용 설정
+    // ── 공개 API ─────────────────────────────────────────
+
+    // LongPressInfo / 외부에서 설명창 열고 닫기
     public void InfoTextSetActive(bool active, bool rightClickEnabledValue)
     {
-        if (instanceInfoText != null)
-            instanceInfoText.SetActive(active);
-
         rightClickEnabled = rightClickEnabledValue;
+
+        if (active)
+            ShowInfoDisplay();
+        else
+            HideInfoDisplay();
     }
 
     // 설명 텍스트 설정
@@ -66,13 +78,13 @@ public class Card : MonoBehaviour, IPointerClickHandler
             txt.text = GetInfo();
     }
 
-    // 카드 정보 숨김 처리
+    // 카드 정보 숨김 처리 (상대 카드 등 외부 강제 숨김)
     public void HideInfo()
     {
+        HideInfoDisplay();
+
         if (instanceInfoText != null)
         {
-            instanceInfoText.SetActive(false);
-
             Text txt = instanceInfoText.GetComponent<Text>();
             if (txt != null)
                 txt.text = "";
@@ -81,7 +93,38 @@ public class Card : MonoBehaviour, IPointerClickHandler
         rightClickEnabled = false;
     }
 
-    // 카드 이름 반환
+    // ── 내부 표시/숨김 (스케일 포함) ──────────────────────
+
+    private void ShowInfoDisplay()
+    {
+        if (isInfoShowing) return;
+        isInfoShowing = true;
+
+        if (instanceInfoText != null)
+            instanceInfoText.SetActive(true);
+
+        // 현재 스케일·순서 저장 후 2배 확대 + 최상단 표시
+        originalScale = transform.localScale;
+        originalSiblingIndex = transform.GetSiblingIndex();
+        transform.localScale = originalScale * INFO_SCALE_MULTIPLIER;
+        transform.SetAsLastSibling();
+    }
+
+    private void HideInfoDisplay()
+    {
+        if (!isInfoShowing) return;
+        isInfoShowing = false;
+
+        if (instanceInfoText != null)
+            instanceInfoText.SetActive(false);
+
+        // 원래 스케일·순서 복원
+        transform.localScale = originalScale;
+        transform.SetSiblingIndex(originalSiblingIndex);
+    }
+
+    // ── 카드 이름 반환 ─────────────────────────────────────
+
     public string GetCardName()
     {
         switch (cardId)
@@ -111,7 +154,8 @@ public class Card : MonoBehaviour, IPointerClickHandler
         return "알 수 없음";
     }
 
-    // 카드 설명 반환
+    // ── 카드 설명 반환 ─────────────────────────────────────
+
     public string GetInfo()
     {
         switch (cardId)
